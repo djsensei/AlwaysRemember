@@ -1,0 +1,5 @@
+Notes:
+
+SCRAPING
+'document_type' values include: {u'article', u'blogpost', u'multimedia'}
+scraping 'multimedia' for story-content or story-body-text will fail.
