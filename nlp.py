@@ -11,6 +11,8 @@ from sklearn.decomposition import NMF
 from sklearn.feature_extraction.text import TfidfVectorizer
 import numpy as np
 
+additional_stopwords = ['said']
+
 def get_raw_docs(table):
     '''
     Gets just the raw docs from a table, no labels or anything.
@@ -24,7 +26,7 @@ def tokenize(doc):
     '''
     Tokenizes a document into a bag of words.
     '''
-    stops = stopwords.words('english')
+    stops = stopwords.words('english') + additional_stopwords
     doc = str(''.join([i if ord(i) < 128 else ' ' for i in doc])).lower()
     doc = doc.translate(None, punctuation)
     t = word_tokenize(doc)

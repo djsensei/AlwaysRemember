@@ -12,6 +12,7 @@ import requests
 from pymongo import MongoClient
 from bs4 import BeautifulSoup
 import simplejson as json
+from time import sleep
 
 baseurl = 'http://api.nytimes.com/svc/search/v2/articlesearch.json?'
 api_key = 'f5720d095a40f76fc4c1e2c4b4657e8f:15:57014703'
@@ -56,9 +57,9 @@ def count_query(url):
     Simply counts articles by day
     '''
     response = requests.get(url)
-    if response.status_code != 200:
+    if response.status_code == 200:
         return response.json()['response']['meta']['hits']
-    return 'Request Failed'
+    return 'Request Failed', response.status_code
 
 def date_process(pub_date):
     '''
@@ -66,7 +67,7 @@ def date_process(pub_date):
     '''
     return ''.join(pub_date.split('T')[0].split('-'))
 
-def many_queries(q, param_dict):
+def many_queries(q, param_dict, max_pages=10):
     '''
     Designed to scrape as many results from the given query as possible.
     Overcomes adversity and defeats the API limits!
@@ -79,7 +80,7 @@ def many_queries(q, param_dict):
     n = hits / 10
     docs = d['response']['docs']
     present_date = date_process(docs[-1]['pub_date'])
-    for p in range(1, n+1):
+    for p in range(1, min(max_pages, n+1)):
         # add the page number to the query, make it again
         new_url = url.split('api-key')
         new_url[0] += 'page=' + str(p) + '&'
@@ -99,23 +100,32 @@ def many_queries(q, param_dict):
     return docs, present_date
 
 def load_mongo(table, docs):
-    # load new documents into mongo table, checking for existence using web_url
+    # load new documents into mongo table, checking for existence using _id
     for d in docs:
         d['full_text'] = ''
-        table.update({'web_url': d['web_url']}, d, upsert=True)
+        table.update({'_id': d['_id']}, d, upsert=True)
 
 def get_full_text(web_url):
     '''
     Scrapes article text from a single web_url, returns the article as string.
     '''
-    r = requests.get(web_url)
-    if r.status_code != 200:
-        print 'error: status code ', r.status_code
-        return None
-    s = BeautifulSoup(r.text, 'html.parser')
+    try:
+        r = requests.get(web_url)
+        if r.status_code != 200:
+            print 'error: status code ', r.status_code
+            return ''
+        s = BeautifulSoup(r.text, 'html.parser')
+    except:
+        print 'requests error with url: ', web_url
+        return ''
 
-    # New Style
-    if s.find('div', {'id':'mod-a-body-first-para'}) == None:
+    # Deal with the different formattings of articles in HTML
+    if s.find('nyt_text'):
+        story = s.find('nyt_text').text
+    elif s.find('div', {'id':'mod-a-body-first-para'}):
+        story = s.find('div', {'id':'mod-a-body-first-para'}).text
+        story += s.find('div', {'id':'mod-a-body-after-first-para'}).text
+    else:
         if s.find('p', {'class':'story-body-text'}) != None:
             paragraphs = s.findAll('p', {'class':'story-body-text'})
             story = ' '.join([p.text for p in paragraphs])
@@ -124,10 +134,6 @@ def get_full_text(web_url):
             story = ' '.join([p.text for p in paragraphs])
         else:
             story = ''
-    # Old Style
-    else:
-        story = s.find('div', {'id':'mod-a-body-first-para'}).text
-        story += s.find('div', {'id':'mod-a-body-after-first-para'}).text
 
     if story == '':
         print 'bad scrape. web_url: ', web_url
@@ -152,11 +158,11 @@ def load_full_texts_from_docs(table, docs, verbose=False):
     Only looks at new documents to avoid going through the whole table each
         scrape-iteration.
     '''
-    for d in docs:
+    for i, d in enumerate(docs):
         if table.find_one({'web_url':d['web_url']}) != None:
             story = get_full_text(d['web_url'])
-            if verbose:
-                print story[:100]
+            if verbose and i%50==0:
+                print 'doc ', i, ': ', story[:100]
             table.update({'web_url': d['web_url']},
                          {'$set': {'full_text': story}},
                          upsert=True)
@@ -206,7 +212,7 @@ def nyt_article_counts_by_day(ymd_start='20130101', ymd_end='20131231'):
                         return counts
                 except:
                     pass
-
+                # sleep(.1) # tweak this to avoid rate limits?
     return counts
 
 def nyt_article_counts_json(counts, filename):
