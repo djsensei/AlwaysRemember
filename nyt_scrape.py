@@ -11,7 +11,7 @@ notes: make sure mongod is up and running. use `sudo mongod` in terminal
 import requests
 from pymongo import MongoClient
 from bs4 import BeautifulSoup
-from time import sleep
+import simplejson as json
 
 baseurl = 'http://api.nytimes.com/svc/search/v2/articlesearch.json?'
 api_key = 'f5720d095a40f76fc4c1e2c4b4657e8f:15:57014703'
@@ -31,6 +31,17 @@ def _query_url(q, param_dict={}):
     url += 'api-key=' + api_key
     return url
 
+def _noquery_url(param_dict={}):
+    '''
+    Queries the NYT API without an actual query. Useful for article counts by
+        date.
+    '''
+    url = baseurl
+    for p, v in param_dict.iteritems():
+        url += p + '=' + v + '&'
+    url += 'api-key=' + api_key
+    return url
+
 def single_query(url):
     response = requests.get(url)
     if response.status_code != 200:
@@ -39,6 +50,15 @@ def single_query(url):
     d = response.json()
     docs = d['response']['docs'] # document records
     return docs
+
+def count_query(url):
+    '''
+    Simply counts articles by day
+    '''
+    response = requests.get(url)
+    if response.status_code != 200:
+        return response.json()['response']['meta']['hits']
+    return 'Request Failed'
 
 def date_process(pub_date):
     '''
@@ -67,10 +87,10 @@ def many_queries(q, param_dict):
         try: # don't lose the docs we already have if if borks
             new_docs = single_query(new_url)
             if new_docs != None:
-                docs += single_query(new_url)
+                docs += new_docs
+                present_date = date_process(new_docs[-1]['pub_date'])
             else:
                 # reset the beginning of the date
-                present_date = date_process(docs[-1]['pub_date'])
                 print 'Last successful date: ', present_date
                 break
         except:
@@ -159,3 +179,54 @@ def troubleshoot_full_text(table):
     r = requests.get(record['web_url'])
     s = BeautifulSoup(r.text, 'html.parser')
     return s
+
+def nyt_article_counts_by_day(ymd_start='20130101', ymd_end='20131231'):
+    '''
+    Pings an empty query to the nyt API for every day from start to finish
+        to determine how many total articles there were (for scaling
+        proportions of articles which match a given topic).
+    Returns a dict. Store as a json file!
+    '''
+    counts = {}
+    for year in range(int(ymd_start[:4]), int(ymd_end[:4]) + 1):
+        for month in range(1, 13):
+            for day in range(1, 32):
+                ds = _date_string(year, month, day)
+                if ds <= ymd_start:
+                    continue
+                if ds > ymd_end:
+                    return counts
+                url = _noquery_url({'begin_date':ds, 'end_date':ds})
+                try:
+                    n = count_query(url)
+                    if n != 'Request Failed':
+                        counts[ds] = n
+                    else:
+                        print 'failed request. last attempt: ', ds
+                        return counts
+                except:
+                    pass
+
+    return counts
+
+def nyt_article_counts_json(counts, filename):
+    with open(filename, 'w') as wf:
+        json.dump(counts, wf)
+
+def _date_string(y, m, d):
+    s = str(y)
+    if m < 10:
+        s += '0' + str(m)
+    else:
+        s += str(m)
+    if d < 10:
+        s += '0' + str(d)
+    else:
+        s += str(d)
+    return s
+
+def _invert_date_string(s):
+    y = int(s[:4])
+    m = int(s[4:6])
+    d = int(s[6:])
+    return (y, m, d)

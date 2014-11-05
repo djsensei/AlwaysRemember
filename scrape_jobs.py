@@ -13,9 +13,9 @@ if __name__=='__main__':
     present_date = '20030101'
     end_date = '20031231'
     param_dict = {'begin_date': present_date,
-                  'end_date': '20021031',
+                  'end_date': end_date,
                   'sort': 'oldest'}
-    while present_date < '20021031':
+    while present_date < end_date:
         print 'loading articles from ', present_date
         docs, present_date = nyt.many_queries(q, param_dict)
         print 'pushing articles into mongo'
