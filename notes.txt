@@ -3,3 +3,6 @@ Notes:
 SCRAPING
 'document_type' values include: {u'article', u'blogpost', u'multimedia'}
 scraping 'multimedia' for story-content or story-body-text will fail.
+
+When scraping documents from different times, make sure the get_full_text
+    method works. The formatting of the HTML files changes. 
