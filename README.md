@@ -19,7 +19,17 @@ The set consists of _____ articles, as well as information about the total numbe
 3. 'sept+11,september+11': 20010911 > 20141031
 
 ## Topic Modeling
-The primary topics are extracted from a set of articles published between 9/11/2001 and 12/31/2002, the time during which the literal and metaphorical dust settled. After cleaning these documents of punctuation, symbols, and stopwords, I vectorized them with TFIDF, using 1-, 2-, and 3-grams. The topics were extracted from the TFIDF feature matrix using NMF. From the topics that NMF produces and the vocabulary of my TFIDF vectorizer, I list the most important terms for each topic and use human intuition to extract a brief description of that topic which serves as its label moving forward.
+The primary topics are extracted from a set of articles published between 9/11/2001 and 3/31/2003, the time during which the literal and metaphorical dust settled. I built a clean-tokenize-TFIDF-NMF pipeline to extract the primary topics from this corpus:
+1. Clean - Remove punctuation, symbols, and stopwords
+2. Tokenize - Convert the cleaned string of words into a list of separate n-grams (1, 2, and 3-grams, in this case)
+3. TFIDF - Compile a vocabulary of all n-grams in the corpus, use it to build a Document-Term feature matrix ('X') from the most important terms
+4. NMF - Split the Document-Term matrix into two matrices ('W', 'H') whose product best approximates X. W represents Document-Topic similarity, and H represents Topic-Term similarity.
+
+### Stage One - Article Relevance
+I run the entire corpus for the specified dates through the pipeline. Using the Topic-Term matrix H from NMF and the vocabulary of my TFIDF vectorizer, I compile the most important terms for each topic. Using my knowledge of the subject domain, I manually weight each topic's relevance to the 9/11 attacks. These weights form a vector which I multiply through the Document-Topic matrix W to determine the estimated relevance of each article. By inspection of articles at various points on the relevance spectrum, I choose a threshold and exclude all documents below that relevance.
+
+### Stage Two - Final Topic Model
+Using the article relevance data from my first stage, I run the corpus through the pipeline again, this time excluding documents whose relevance was below the threshold. The topics that emerge are inspected again to confirm relevance; upon confirmation, the TFIDF vectorizer and the H matrix from NMF are stored as the final topic model to classify future documents. 
 
 ## Visualization
 
