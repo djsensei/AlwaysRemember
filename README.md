@@ -13,6 +13,11 @@ It is important to include articles from well before 9/11 all the way up to the 
 
 The set consists of _____ articles, as well as information about the total number of articles published by the NYT on each day for relative frequency comparison.
 
+### Dataset Queries
+1. 'World Trade Center': 19900101 > 20141031
+2. 'terrorist,terrorism,terror': 19900101 > 20141031
+3. 'sept+11,september+11': 20010911 > 20141031
+
 ## Topic Modeling
 The primary topics are extracted from a set of articles published between 9/11/2001 and 12/31/2002, the time during which the literal and metaphorical dust settled. After cleaning these documents of punctuation, symbols, and stopwords, I vectorized them with TFIDF, using 1-, 2-, and 3-grams. The topics were extracted from the TFIDF feature matrix using NMF. From the topics that NMF produces and the vocabulary of my TFIDF vectorizer, I list the most important terms for each topic and use human intuition to extract a brief description of that topic which serves as its label moving forward.
 
