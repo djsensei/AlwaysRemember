@@ -40,11 +40,23 @@ def clean_tokenize(doc):
             clean.append(word)
     return clean
 
-def clean_these_docs(table, docs):
+def clean_these_docs(table, records, verbose=False):
     '''
     Cleans just the documents in this list
     '''
-    pass
+    i = 0
+    for r in records:
+        i += 1
+        if verbose and i % 100 == 0:
+            print 'cleaning doc # ', i
+        try:
+            full_text = table.find_one({'_id':r['_id']})['full_text']
+            clean_text = ' '.join(clean_tokenize(full_text))
+            table.update({'_id':r['_id']},
+                         {'$set': {'clean_text': clean_text}},
+                         upsert=True)
+        except:
+            print 'failed to tokenize record: id ', r['_id']
 
 def clean_all_docs(table, overwrite=False, verbose=False):
     '''

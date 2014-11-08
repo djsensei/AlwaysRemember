@@ -36,6 +36,29 @@ class TopicAnalyzer(object):
                 output[t] = (t, total_topic_freqs[t], None)
         return output
 
+    def current_events_analysis(self, table, n_days=7):
+        '''
+        Finds just articles from the last n_days for special analysis/output
+        '''
+        #TODO
+        pass
+
+    def empire_plot_frequency(self, table, start_date='2001-10',
+                              end_date='2014-11', **kwargs):
+        '''
+        Gets topic frequencies by date range for every month from start_date to
+            end_date
+        '''
+        # build date list
+        dates = [start_date]
+        while dates[-1] != _next_month(end_date):
+            dates.append(_next_month(dates[-1]))
+        freq_table = {d:[0] * self.num_topics for d in dates}
+        for d in range(len(dates) - 1):
+            output = self.topic_freq_by_date_range(table, dates[d], dates[d+1],
+                                              **kwargs)
+            freq_table[dates[d]] = [t[1] for t in output]
+        return freq_table
 
 
 def normalize_frequencies(f):
@@ -43,3 +66,17 @@ def normalize_frequencies(f):
     normalizes the frequencies in array f to sum to 1
     '''
     return f / sum(f)
+
+def _next_month(d):
+    '''
+    INPUT: date string ('YYYY-MM')
+    OUTPUT: date string ('YYYY-MM') of the next month
+    '''
+    y = int(d[:4])
+    m = int(d[-2:])
+    if m == 12:
+        return str(y + 1) + '-01'
+    elif m < 9:
+        return str(y) + '-0' + str(m + 1)
+    else:
+        return str(y) + '-' + str(m + 1)

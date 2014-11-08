@@ -17,6 +17,12 @@ from time import sleep
 baseurl = 'http://api.nytimes.com/svc/search/v2/articlesearch.json?'
 api_key = 'f5720d095a40f76fc4c1e2c4b4657e8f:15:57014703'
 
+# not used yet, but could be
+urls_to_ignore = set(['http://www.nytimes.com/video', 'http://www.legacy.com',
+                      'http://www.nytimes.com/slideshow',
+                      'http://cooking.nytimes.com/recipes',
+                      'http://www.nytimes.com/interactive'])
+
 def mongo_connection():
     client = MongoClient('mongodb://localhost:27017/')
     db = client.neverforget
