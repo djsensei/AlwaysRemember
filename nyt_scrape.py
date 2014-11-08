@@ -67,12 +67,14 @@ def date_process(pub_date):
     '''
     return ''.join(pub_date.split('T')[0].split('-'))
 
-def many_queries(q, param_dict, max_pages=10):
+def many_queries(q=None, param_dict=None, max_pages=10, url=None):
     '''
     Designed to scrape as many results from the given query as possible.
     Overcomes adversity and defeats the API limits!
+    Input either a query (q), param_dict combination or a prebuilt url.
     '''
-    url = _query_url(q, param_dict)
+    if not url:
+        url = _query_url(q, param_dict)
     response = requests.get(url)
     d = response.json()
     hits = d['response']['meta']['hits'] # number of results
