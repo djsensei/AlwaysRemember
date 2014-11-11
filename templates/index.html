@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>9/11 Topic Analysis</title>
+    <meta charset="utf-8">
+    <link href='../src/style.css' rel='stylesheet' type='text/css'>
+    <script src="../src/d3.min.js"></script>
+</head>
+<body>
+    <div id='header'></div>
+    <div id="viz-container">
+        <div id="topic-legend"></div>
+        <div id="volume-chart">
+            <svg id="volume-svg" overflow='visible'></svg>
+        </div>
+        <div id="empire-chart">
+            <svg id="empire-svg" overflow='visible'></svg>
+        </div>
+        <div id="topic-chart">
+            <svg id="topic-svg"></svg>
+        </div>
+    </div>
+    <div id='footer'>
+    </div>
+    <script defer>
+        var margin = {top:20, left:50, right:20, bottom:30}
+        var vWidth = 1000 - margin.left - margin.right,
+            vHeight = 400 - margin.top - margin.bottom;
+
+        // var topicNames = ['hijackers', 'firefighters', 'anthrax'];
+        // var selectedTopic = 'hijackers';
+
+        var parseMonth = d3.time.format("%Y-%m").parse,
+            parseDay = d3.time.format("%Y-%m-%d").parse,
+            formatPercent = d3.format(".0%");
+
+        var x = d3.time.scale()
+                       .range([0, vWidth]);
+
+        var yE = d3.scale.linear()
+                        .range([vHeight, 0])
+                        .domain([0, 1]);
+        var yV = d3.scale.linear()
+                         .range([vHeight, 0]);
+
+        var color = d3.scale.category20();
+
+        var xAxis = d3.svg.axis()
+                          .scale(x)
+                          .orient("bottom");
+
+        var yAxisEmpire = d3.svg.axis()
+                          .scale(yE)
+                          .orient("left")
+                          .tickFormat(formatPercent);
+
+        var yAxisVolume = d3.svg.axis()
+                                .scale(yV)
+                                .orient("left");
+
+        var areaE = d3.svg.area()
+                         .x(function(d) { return x(d.date); })
+                         .y0(function(d) { return yE(d.y0); })
+                         .y1(function(d) { return yE(d.y0 + d.y); });
+        var areaV = d3.svg.area()
+                          .x(function(d) { return x(d.date); })
+                          .y0(function(d) { return yV(d.y0); })
+                          .y1(function(d) { return yV(d.y0 + d.y); });
+
+        var volumeStack = d3.layout.stack()
+                            .offset("stacked")
+                            .values(function(d) { return d.values; });
+
+        var empireStack = d3.layout.stack()
+                            .offset("expand")
+                            .values(function(d) { return d.values; });
+
+        var volumeSvg = d3.select("#volume-svg")
+                           .attr("width", vWidth)
+                           .attr("height", vHeight)
+                           .attr("transform", "translate("+margin.left+","+margin.top+")");
+        var empireSvg = d3.select("#empire-svg")
+                           .attr("width", vWidth)
+                           .attr("height", vHeight)
+                           .attr("transform", "translate("+margin.left+","+margin.top+")");
+        // var topicSvg = d3.select("#topic-svg")
+        //                    .attr("width", vWidth+margin.left+margin.right)
+        //                    .attr("height", vHeight+margin.top+margin.bottom)
+        //                    .attr("transform", "translate("+margin.left+","+margin.top+")");
+        function sumTopics(row) {
+            // Sums the weights of each topic
+            var sum = 0.0;
+            for (var key in row) {
+                if (key != 'date') {
+                    sum += parseFloat(row[key]);
+                }
+            }
+            return sum;
+        };
+
+        d3.csv("../topic_months.csv", function(error, data){
+            // topic names live in color.domain
+            var allTopics = d3.keys(data[0]).filter(function(key) { return key !== "date"; });
+            color.domain(allTopics);
+            // compile useful info and transforms on the dataset
+            data.forEach(function(d) {
+                d.topicSum = sumTopics(d);
+                d.month = parseMonth(d.date);
+            });
+            // set domains now that we have data
+            x.domain(d3.extent(data, function(d) { return d.month; }));
+            yV.domain([0, d3.max(data, function(d) { return d.topicSum; })]);
+
+            // Plot VolumeTopics
+            var volumeTopics = volumeStack(color.domain().map(function(name) {
+                return {
+                  name: name,
+                  values: data.map(function(d) {
+                    return {date: d.month, y: parseFloat(d[name])};
+                  })
+                }
+            }));
+            var volumeTopic = volumeSvg.selectAll(".volume")
+                                       .data(volumeTopics)
+                                       .enter().append("g")
+                                       .attr("class", "volumeTopic");
+            volumeTopic.append("path")
+                       .attr("class", "area")
+                       .attr("d", function(d) { return areaV(d.values); })
+                       .style("fill", function(d) { return color(d.name); });
+            volumeSvg.append("g")
+                     .attr("class", "x axis")
+                     .attr("transform", "translate(0," + vHeight + ")")
+                     .call(xAxis);
+            volumeSvg.append("g")
+                     .attr("class", "y axis")
+                     .call(yAxisVolume);
+
+            // Plot EmpireTopics
+            var empireTopics = empireStack(color.domain().map(function(name) {
+                return {
+                  name: name,
+                  values: data.map(function(d) {
+                    return {date: d.month, y: parseFloat(d[name])};
+                  })
+                };
+            }));
+            var empireTopic = empireSvg.selectAll(".topic")
+                                 .data(empireTopics)
+                                 .enter().append("g")
+                                 .attr("class", "empireTopic");
+            empireTopic.append("path")
+                 .attr("class", "area")
+                 .attr("d", function(d) { return areaE(d.values); })
+                 .style("fill", function(d) { return color(d.name); });
+            empireTopic.append("text")
+                 .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+                 .attr("transform", function(d) { return "translate(" + x(d.value.date)
+                        + "," + yE(d.value.y0 + d.value.y / 2) + ")"; })
+                 .attr("x", -6)
+                 .attr("dy", ".35em")
+                 .text(function(d) { return d.name; });
+            empireSvg.append("g")
+                     .attr("class", "x axis")
+                     .attr("transform", "translate(0," + vHeight + ")")
+                     .call(xAxis);
+            empireSvg.append("g")
+                     .attr("class", "y axis")
+                     .call(yAxisEmpire);
+
+            // Plot Legend of Topics
+            var legRow = d3.select("#topic-legend")
+                           .append("svg")
+                           .attr("class", "legend-svg")
+		                   .append("table")
+                           .selectAll("tr")
+                           .data(allTopics)
+                           .enter().append("tr")
+                           .append("td");
+            legRow.append("div")
+                  .attr("class", "legend-row")
+                  .style("background-color", function(d){ return color[d]; });
+		        //   .on("mouseover", mouseoverLegend)
+                //   .on("mouseout", mouseoutLegend)
+            legRow.append("span")
+                  .attr("class", "legend-text")
+                  .text(function(d){ return d; });
+		        //   .on("mouseover", mouseoverLegend)
+                //   .on("mouseout", mouseoutLegend)
+
+        });
+    </script>
+</body>
+</html>

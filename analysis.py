@@ -48,13 +48,14 @@ class TopicAnalyzer(object):
         pass
 
     def empire_plot_frequency(self, table, start_date='2001-10',
-                              end_date='2014-11', **kwargs):
+                              end_date='2014-11', verbose=False, **kwargs):
         '''
         Gets topic frequencies for every month in range. Output designed
             to build a stacked area chart.
 
         INPUT:  mongo-collection - table, string - start_date,
-                string - end_date, **kwargs for topic_freq_by_date_range
+                string - end_date, bool - verbose,
+                **kwargs for topic_freq_by_date_range
         OUTPUT: dict - freq_table of topic frequencies keyed by year-month
         '''
         # build date list
@@ -63,6 +64,8 @@ class TopicAnalyzer(object):
             dates.append(_next_month(dates[-1]))
         freq_table = {d: [0] * self.num_topics for d in dates}
         for d in range(len(dates) - 1):
+            if verbose:
+                print 'getting frequencies for ', dates[d]
             output = self.topic_freq_by_date_range(table, dates[d], dates[d+1],
                                                    **kwargs)
             freq_table[dates[d]] = [t[1] for t in output]
