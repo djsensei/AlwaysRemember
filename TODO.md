@@ -1,11 +1,15 @@
 ### Topic Modeling
 1. Finalize the topics! I _can_ come back to it, but the pipeline from that point forward will eat up time...
+2. Consider stemming the documents? It might take a while, and it might screw up some proper names, but it could also decrease the vocabulary size substantially and make the TFIDF stronger.
+3. Explore Guantanamo spelling, since there's a funky a in there sometimes?
 
 ### Analysis
 1. Ensure that the same top article isn't returned for every topic (see: state of the union address)
   * If an article appears twice, find the topic that it has a higher score, then take the second article for the other topics. Repeat until unique articles. `len(set(L)) == len(L)`
 2. Finish+Test empire plot frequency function
 3. Make sure outputs are friendly for pushing to D3 (probably csvs?)
+4. See if word count has something to do with how much a document matches the topics. It seems like longer documents have more matches (see: state of the union address...)
+  * If so, figure out a way to scale it so the matches are more meaningful. Divide by word count, perhaps?
 
 ### Visualization Planning
 1. Which visualizations will I focus on?

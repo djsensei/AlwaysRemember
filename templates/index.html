@@ -170,19 +170,24 @@
 
             // Plot Legend of Topics
             var legRow = d3.select("#topic-legend")
-                           .append("svg")
-                           .attr("class", "legend-svg")
-		                   .append("table")
+                           .append("table")
+                           .attr("class", "legend-table")
                            .selectAll("tr")
                            .data(allTopics)
-                           .enter().append("tr")
-                           .append("td");
-            legRow.append("div")
-                  .attr("class", "legend-row")
-                  .style("background-color", function(d){ return color[d]; });
+                           .enter().append("tr");
+            debugger;
+            legRow.append("td")
+                  .append("svg")
+                  .attr("class", "legend-box")
+                  .attr("width", 16)
+                  .attr("height", 16)
+                  .append("rect")
+                  .attr("width", 16)
+                  .attr("height", 16)
+                  .style("fill", function(d){ return color(d); });
 		        //   .on("mouseover", mouseoverLegend)
                 //   .on("mouseout", mouseoutLegend)
-            legRow.append("span")
+            legRow.append("td")
                   .attr("class", "legend-text")
                   .text(function(d){ return d; });
 		        //   .on("mouseover", mouseoverLegend)

@@ -40,6 +40,25 @@ class TopicAnalyzer(object):
                 output[t] = (t, total_topic_freqs[t], None)
         return output
 
+    def topic_count_by_date_range(self, table, start_date, end_date,
+                                  doc_topic_threshold=.1):
+        '''
+        Returns a count of articles that match each topic above a certain
+            threshold of similarity. More granular and human-interpretable
+            than topic_freq_by_date_range.
+
+        INPUT:  mongo-collection - table, string - start_date,
+                string - end_date, float - doc_topic_threshold
+        OUTPUT: np array - count of matching articles per topic
+        '''
+        q = {'pub_date': {'$gte': start_date, '$lte': end_date}}
+        docs = just_clean_text(table, q)
+        article_ids = np.array([d[0] for d in docs])
+        X = self.vectorizer.transform([d[1] for d in docs])
+        doc_topic_freqs = X.dot(self.H.T)
+        matches = doc_topic_freqs > doc_topic_threshold
+        return matches.sum(axis=0)
+
     def current_events_analysis(self, table, n_days=7):
         '''
         Finds just articles from the last n_days for special analysis/output

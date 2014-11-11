@@ -18,14 +18,16 @@ body{
     height:100%;
     background-color: #DDDDDD;
 }
-.legend-row{
-    cursor:pointer;
-    width:20px;
-    height:20px;
-    float:left;
+#topic-legend tr, #topic-legend td{
+    margin:0;
+    padding:0;
 }
-.legend-text{
-    cursor:pointer;
+.legend-table{
+    width:180px;
+    height:100%;
+    margin:10px;
+    display:inline-block;
+    overflow:auto;
 }
 #empire-chart, #volume-chart, #topic-chart{
     margin-left:250px;
