@@ -27,9 +27,6 @@
         var vWidth = 1000 - margin.left - margin.right,
             vHeight = 400 - margin.top - margin.bottom;
 
-        // var topicNames = ['hijackers', 'firefighters', 'anthrax'];
-        // var selectedTopic = 'hijackers';
-
         var parseMonth = d3.time.format("%Y-%m").parse,
             parseDay = d3.time.format("%Y-%m-%d").parse,
             formatPercent = d3.format(".0%");
@@ -43,7 +40,12 @@
         var yV = d3.scale.linear()
                          .range([vHeight, 0]);
 
-        var color = d3.scale.category20();
+        var color = d3.scale.ordinal()
+                            .range(["#A89FC9", "#76D74A", "#CE4B3B",
+                                    "#42503B", "#CC53CD", "#82D39A",
+                                    "#CBA88E", "#C45085", "#C38737",
+                                    "#4E3E64", "#D0D051", "#608638",
+                                    "#6E3531", "#796DCA", "#7FBFC3"]);
 
         var xAxis = d3.svg.axis()
                           .scale(x)
@@ -59,13 +61,20 @@
                                 .orient("left");
 
         var areaE = d3.svg.area()
-                         .x(function(d) { return x(d.date); })
-                         .y0(function(d) { return yE(d.y0); })
-                         .y1(function(d) { return yE(d.y0 + d.y); });
+                          .interpolate("monotone")
+                          .x(function(d) { return x(d.date); })
+                          .y0(function(d) { return yE(d.y0); })
+                          .y1(function(d) { return yE(d.y0 + d.y); });
         var areaV = d3.svg.area()
+                          .interpolate("monotone")
                           .x(function(d) { return x(d.date); })
                           .y0(function(d) { return yV(d.y0); })
                           .y1(function(d) { return yV(d.y0 + d.y); });
+        var areaVSolo = d3.svg.area()
+                              .interpolate("monotone")
+                              .x(function(d) { return x(d.date); })
+                              .y0(function(d) { return yV(0); })
+                              .y1(function(d) { return yV(d.y); });
 
         var volumeStack = d3.layout.stack()
                             .offset("stacked")
@@ -84,32 +93,31 @@
                            .attr("height", vHeight)
                            .attr("transform", "translate("+margin.left+","+margin.top+")");
         // var topicSvg = d3.select("#topic-svg")
-        //                    .attr("width", vWidth+margin.left+margin.right)
-        //                    .attr("height", vHeight+margin.top+margin.bottom)
+        //                    .attr("width", vWidth)
+        //                    .attr("height", vHeight)
         //                    .attr("transform", "translate("+margin.left+","+margin.top+")");
-        function sumTopics(row) {
+        function sumTopics(row, topicList) {
             // Sums the weights of each topic
             var sum = 0.0;
             for (var key in row) {
-                if (key != 'date') {
+                if (topicList.indexOf(key) >= 0) {
                     sum += parseFloat(row[key]);
                 }
             }
             return sum;
         };
 
-        d3.csv("../topic_months.csv", function(error, data){
+        d3.csv("../topic_months2.csv", function(error, data){
             // topic names live in color.domain
             var allTopics = d3.keys(data[0]).filter(function(key) { return key !== "date"; });
             color.domain(allTopics);
             // compile useful info and transforms on the dataset
             data.forEach(function(d) {
-                d.topicSum = sumTopics(d);
+                d.topicSum = sumTopics(d, allTopics);
                 d.month = parseMonth(d.date);
             });
             // set domains now that we have data
             x.domain(d3.extent(data, function(d) { return d.month; }));
-            yV.domain([0, d3.max(data, function(d) { return d.topicSum; })]);
 
             // Plot VolumeTopics
             var volumeTopics = volumeStack(color.domain().map(function(name) {
@@ -120,23 +128,6 @@
                   })
                 }
             }));
-            var volumeTopic = volumeSvg.selectAll(".volume")
-                                       .data(volumeTopics)
-                                       .enter().append("g")
-                                       .attr("class", "volumeTopic");
-            volumeTopic.append("path")
-                       .attr("class", "area")
-                       .attr("d", function(d) { return areaV(d.values); })
-                       .style("fill", function(d) { return color(d.name); });
-            volumeSvg.append("g")
-                     .attr("class", "x axis")
-                     .attr("transform", "translate(0," + vHeight + ")")
-                     .call(xAxis);
-            volumeSvg.append("g")
-                     .attr("class", "y axis")
-                     .call(yAxisVolume);
-
-            // Plot EmpireTopics
             var empireTopics = empireStack(color.domain().map(function(name) {
                 return {
                   name: name,
@@ -145,53 +136,134 @@
                   })
                 };
             }));
-            var empireTopic = empireSvg.selectAll(".topic")
-                                 .data(empireTopics)
-                                 .enter().append("g")
-                                 .attr("class", "empireTopic");
-            empireTopic.append("path")
-                 .attr("class", "area")
-                 .attr("d", function(d) { return areaE(d.values); })
-                 .style("fill", function(d) { return color(d.name); });
-            empireTopic.append("text")
-                 .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
-                 .attr("transform", function(d) { return "translate(" + x(d.value.date)
-                        + "," + yE(d.value.y0 + d.value.y / 2) + ")"; })
-                 .attr("x", -6)
-                 .attr("dy", ".35em")
-                 .text(function(d) { return d.name; });
-            empireSvg.append("g")
-                     .attr("class", "x axis")
-                     .attr("transform", "translate(0," + vHeight + ")")
-                     .call(xAxis);
-            empireSvg.append("g")
-                     .attr("class", "y axis")
-                     .call(yAxisEmpire);
+            var volumeTopicsMinusThis = function(t) {
+                return volumeTopics.filter(function(o){ return o.name !== t; });
+            };
 
-            // Plot Legend of Topics
-            var legRow = d3.select("#topic-legend")
-                           .append("table")
-                           .attr("class", "legend-table")
-                           .selectAll("tr")
-                           .data(allTopics)
-                           .enter().append("tr");
-            debugger;
-            legRow.append("td")
-                  .append("svg")
-                  .attr("class", "legend-box")
-                  .attr("width", 16)
-                  .attr("height", 16)
-                  .append("rect")
-                  .attr("width", 16)
-                  .attr("height", 16)
-                  .style("fill", function(d){ return color(d); });
-		        //   .on("mouseover", mouseoverLegend)
-                //   .on("mouseout", mouseoutLegend)
-            legRow.append("td")
-                  .attr("class", "legend-text")
-                  .text(function(d){ return d; });
-		        //   .on("mouseover", mouseoverLegend)
-                //   .on("mouseout", mouseoutLegend)
+            var loadAllVolumes = function(){
+                yV.domain([0, d3.max(data, function(d) { return d.topicSum; })]);
+
+                var volumeTopic = volumeSvg.selectAll(".volume")
+                                           .data(volumeTopics)
+                                           .enter().append("g")
+                                           .attr("class", "volumeTopic");
+                volumeTopic.append("path")
+                           .attr("class", "area")
+                           .attr("id", function(d) { return "volume_" + d.name; })
+                           .attr("d", function(d) { return areaV(d.values); })
+                           .style("fill", function(d) { return color(d.name); });
+                volumeSvg.append("g")
+                         .attr("class", "x axis")
+                         .attr("transform", "translate(0," + vHeight + ")")
+                         .call(xAxis);
+                volumeSvg.append("g")
+                         .attr("class", "y axis")
+                         .call(yAxisVolume);
+            };
+            var loadOneVolume = function(t){
+                var topicData = [volumeTopics[t]];
+                yV.domain([0, d3.max(topicData[0].values, function(d) { return d.y; })]);
+                volumeSvg.html('');  // kill it all!
+                var volumeTopic = volumeSvg.selectAll(".volumeTopic")
+                                           .data(topicData)
+                                           .enter().append("g")
+                                           .attr("class", "volumeTopic");
+                volumeTopic.append("path")
+                           .attr("class", "area")
+                           .attr("id", function(d) { return "volume_" + d.name; })
+                           .attr("d", function(d) { return areaVSolo(d.values); })
+                           .style("fill", function(d) { return color(d.name); });
+                volumeSvg.append("g")
+                         .attr("class", "x axis")
+                         .attr("transform", "translate(0," + vHeight + ")")
+                         .call(xAxis);
+                volumeSvg.append("g")
+                         .attr("class", "y axis")
+                         .call(yAxisVolume);
+            };
+
+            // Plot EmpireTopics
+            var loadAllEmpires = function(){
+                var empireTopic = empireSvg.selectAll(".topic")
+                                     .data(empireTopics)
+                                     .enter().append("g")
+                                     .attr("class", "empireTopic");
+                empireTopic.append("path")
+                     .attr("class", "area")
+                     .attr("id", function(d) { return "empire_" + d.name; })
+                     .attr("d", function(d) { return areaE(d.values); })
+                     .style("fill", function(d) { return color(d.name); });
+                // empireTopic.append("text")
+                //      .datum(function(d) { return {name: d.name, value: d.values[d.values.length - 1]}; })
+                //      .attr("transform", function(d) { return "translate(" + x(d.value.date)
+                //             + "," + yE(d.value.y0 + d.value.y / 2) + ")"; })
+                //      .attr("x", -6)
+                //      .attr("dy", ".35em")
+                //      .text(function(d) { return d.name; });
+                empireSvg.append("g")
+                         .attr("class", "x axis")
+                         .attr("transform", "translate(0," + vHeight + ")")
+                         .call(xAxis);
+                empireSvg.append("g")
+                         .attr("class", "y axis")
+                         .call(yAxisEmpire);
+            };
+
+            var clickLegend = function(t){
+                // Update plots for the specific topic t
+                loadOneVolume(t)
+            };
+            var clearLegend = function(){
+                // Resets plots to no specific topic
+            };
+            var mouseoverLegend = function(t){
+                // Flash this topic on the plots
+                d3.select("#volume_" + t)
+                  .style("opacity", 1);
+                d3.select("#empire_" + t)
+                  .style("opacity", 1);
+            };
+            var mouseoutLegend = function(t){
+                // Unflash this topic on the plots
+                d3.select("#volume_" + t)
+                  .style("opacity", null);
+                d3.select("#empire_" + t)
+                  .style("opacity", null);
+            };
+
+            var loadLegend = function(){
+                // Plot Legend of Topics
+                var legRow = d3.select("#topic-legend")
+                               .append("table")
+                               .attr("class", "legend-table")
+                               .selectAll("tr")
+                               .data(allTopics)
+                               .enter().append("tr");
+
+                legRow.append("td")
+                      .append("svg")
+                      .attr("class", "legend-box")
+                      .attr("width", 16)
+                      .attr("height", 16)
+                      .append("rect")
+                      .attr("width", 16)
+                      .attr("height", 16)
+                      .style("fill", function(d){ return color(d); })
+    		          .on("click", clickLegend)
+                      .on("mouseover", mouseoverLegend)
+                      .on("mouseout", mouseoutLegend);
+                legRow.append("td")
+                      .attr("class", "legend-text")
+                      .text(function(d){ return d; })
+    		          .on("click", clickLegend)
+                      .on("mouseover", mouseoverLegend)
+                      .on("mouseout", mouseoutLegend);
+            };
+
+            // Initial Run
+            loadLegend()
+            loadAllVolumes()
+            loadAllEmpires()
 
         });
     </script>

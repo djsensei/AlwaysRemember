@@ -4,6 +4,7 @@ Using the pre-compiled topic model, determine topic frequencies by date ranges
 import pickle
 import numpy as np
 from mongo_stuff import just_clean_text
+from collections import Counter
 
 
 class TopicAnalyzer(object):
@@ -41,14 +42,18 @@ class TopicAnalyzer(object):
         return output
 
     def topic_count_by_date_range(self, table, start_date, end_date,
-                                  doc_topic_threshold=.1):
+                                  doc_topic_threshold=.1,
+                                  only_best_match=False):
         '''
         Returns a count of articles that match each topic above a certain
             threshold of similarity. More granular and human-interpretable
-            than topic_freq_by_date_range.
+            than topic_freq_by_date_range. If only_best_match: counts
+            articles for which that topic is the best match. Else: counts
+            any article above that threshold per topic.
 
         INPUT:  mongo-collection - table, string - start_date,
-                string - end_date, float - doc_topic_threshold
+                string - end_date, float - doc_topic_threshold,
+                bool - only_best_match
         OUTPUT: np array - count of matching articles per topic
         '''
         q = {'pub_date': {'$gte': start_date, '$lte': end_date}}
@@ -56,6 +61,9 @@ class TopicAnalyzer(object):
         article_ids = np.array([d[0] for d in docs])
         X = self.vectorizer.transform([d[1] for d in docs])
         doc_topic_freqs = X.dot(self.H.T)
+        if only_best_match:
+            best_matches = Counter(doc_topic_freqs.argmax(axis=1))
+            return np.array([best_matches[i] for i in range(self.num_topics)])
         matches = doc_topic_freqs > doc_topic_threshold
         return matches.sum(axis=0)
 
@@ -66,8 +74,8 @@ class TopicAnalyzer(object):
         #TODO
         pass
 
-    def empire_plot_frequency(self, table, start_date='2001-10',
-                              end_date='2014-11', verbose=False, **kwargs):
+    def empire_plot_counts(self, table, start_date='2001-10',
+                           end_date='2014-11', verbose=False, **kwargs):
         '''
         Gets topic frequencies for every month in range. Output designed
             to build a stacked area chart.
@@ -75,7 +83,7 @@ class TopicAnalyzer(object):
         INPUT:  mongo-collection - table, string - start_date,
                 string - end_date, bool - verbose,
                 **kwargs for topic_freq_by_date_range
-        OUTPUT: dict - freq_table of topic frequencies keyed by year-month
+        OUTPUT: dict - freq_table of topic counts keyed by year-month
         '''
         # build date list
         dates = [start_date]
@@ -85,9 +93,8 @@ class TopicAnalyzer(object):
         for d in range(len(dates) - 1):
             if verbose:
                 print 'getting frequencies for ', dates[d]
-            output = self.topic_freq_by_date_range(table, dates[d], dates[d+1],
-                                                   **kwargs)
-            freq_table[dates[d]] = [t[1] for t in output]
+            freq_table[dates[d]] = self.topic_count_by_date_range(table,
+                    dates[d], dates[d+1], **kwargs)
         return freq_table
 
 

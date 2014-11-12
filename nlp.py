@@ -166,7 +166,7 @@ def initial_topic_pipeline(table, query, max_features=20000,
     X, vec, article_ids = table_tfidf(table, query, max_features, ngram_range,
                                       max_df)
     W, H = basic_nmf(X, n_topics)
-    topic_dicts = topic_parse(vec, H, n_topics, n_top_words)
+    topic_dicts = topic_parse(vec, H, n_top_words)
     print_topics(topic_dicts)
     return W, article_ids, topic_dicts
 
@@ -225,7 +225,7 @@ def final_topic_pipeline(table, query, article_relevance, relevance_threshold,
     X = vec.fit_transform(bigdf[condition]['clean_text'].values)
 
     W, H = basic_nmf(X, n_topics)
-    topic_dicts = topic_parse(vec, H, n_topics, n_top_words)
+    topic_dicts = topic_parse(vec, H, n_top_words)
     print_topics(topic_dicts)
     return vec, H, topic_dicts
 
@@ -243,3 +243,29 @@ def print_topics(topic_dicts):
         for item in l:
             print '  ', item[1], '  ', item[0]
         print '\n'
+
+
+def human_topic_analysis(topic_dicts):
+    '''
+    Presents topics one at a time, prompting the user for a name/description
+        and a keep-or-discard boolean. Enter Q to quit at any time.
+
+    INPUT:  list - topic_dicts
+    OUTPUT: list - topic names and classifications
+    '''
+    output = [None] * len(topic_dicts)
+    for i, topic in enumerate(topic_dicts):
+        # print topics
+        l = sorted(topic.items(), key=lambda x: x[1])[::-1]
+        print "Topic #" + str(i)
+        for item in l:
+            print '  ', item[1], '  ', item[0]
+        print '\n'
+        # get name and classification
+        name = raw_input("Name this topic: ")
+        keep = bool(raw_input("Keep? (0 or 1): "))
+        if name == 'Q':
+            return output
+        # push to list
+        output[i] = (name, keep)
+    return output

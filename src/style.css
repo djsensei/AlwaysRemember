@@ -43,5 +43,8 @@ body{
     bottom:0;
 }*/
 .area{
-    opacity:.7;
+    opacity:.6;
+}
+.area:hover{
+    opacity:1;
 }

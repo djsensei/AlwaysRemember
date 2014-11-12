@@ -2,6 +2,7 @@
 1. Finalize the topics! I _can_ come back to it, but the pipeline from that point forward will eat up time...
 2. Consider stemming the documents? It might take a while, and it might screw up some proper names, but it could also decrease the vocabulary size substantially and make the TFIDF stronger.
 3. Explore Guantanamo spelling, since there's a funky a in there sometimes?
+4. Explore docs around ~2005 since there's a weird dropoff. Are we scraping full text improperly?
 
 ### Analysis
 1. Ensure that the same top article isn't returned for every topic (see: state of the union address)
@@ -17,4 +18,6 @@
   2. How interactive will they be?
     * Martini glass style?
   3. What data sources (csvs?) do I need to build to support them?
-2. Color Scheme! Get a good one with enough colors for all the topics.
+
+### Bonus Jazz
+1. Proper Name formatting: Write function to parse through cleandocs vs. full text to determine if a word is always capitalized. If so, it's a proper name! Ensure that it is capitalized in the viz too, somehow.
