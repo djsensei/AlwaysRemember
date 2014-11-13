@@ -43,7 +43,7 @@ class TopicAnalyzer(object):
 
     def topic_count_by_date_range(self, table, start_date, end_date,
                                   doc_topic_threshold=.1,
-                                  only_best_match=False):
+                                  only_best_match=True):
         '''
         Returns a count of articles that match each topic above a certain
             threshold of similarity. More granular and human-interpretable
@@ -59,8 +59,10 @@ class TopicAnalyzer(object):
         q = {'pub_date': {'$gte': start_date, '$lte': end_date}}
         docs = just_clean_text(table, q)
         article_ids = np.array([d[0] for d in docs])
-        X = self.vectorizer.transform([d[1] for d in docs])
-        doc_topic_freqs = X.dot(self.H.T)
+        texts = [d[1] for d in docs]
+        article_lengths = _get_article_lengths(texts)
+        X = self.vectorizer.transform(texts)
+        doc_topic_freqs = X.dot(self.H.T) / article_lengths
         if only_best_match:
             best_matches = Counter(doc_topic_freqs.argmax(axis=1))
             return np.array([best_matches[i] for i in range(self.num_topics)])
@@ -97,12 +99,37 @@ class TopicAnalyzer(object):
                     dates[d], dates[d+1], **kwargs)
         return freq_table
 
+    def bake_empire_csv(self, freq_table, csv_file, topic_names=None):
+        '''
+        Creates a CSV from the empire_plot_counts output. Easy to plug
+            into D3 viz!
+
+        INPUT:  dict - freq_table, filepath - csv_file, list - topic_names
+        OUTPUT: None
+        '''
+        df = pd.DataFrame.from_dict(data=freq_table, orient='index').sort()
+        #TODO: bake in topic names!
+        df.to_csv(open(csv_file, 'w'), index_label='date')
+
 
 def normalize_frequencies(f):
     '''
     Normalizes and returns array f so that it sums to 1.
     '''
     return f / sum(f)
+
+
+def _get_article_lengths(docs):
+    '''
+    Determines the length of each document in docs for normalizing TFIDF
+
+    INPUT:  list length n - documents
+    OUTPUT: n x 1 np array - length of docs
+    '''
+    L = np.zeros((len(docs), 1))
+    for i, d in enumerate(docs):
+        L[i] = len(d.split())
+    return L
 
 
 def _next_month(d):

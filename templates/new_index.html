@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>9/11 Topic Analysis</title>
+    <meta charset="utf-8">
+    <link href='../src/new_style.css' rel='stylesheet' type='text/css'>
+    <script src="../src/d3.min.js"></script>
+</head>
+<body>
+    <div class='header'></div>
+    <div class="viz-container">
+        <div class="legend">
+            <svg class="legend-general"></svg>
+            <svg class="legend-topics"></svg>
+        </div>
+        <div class="volume">
+            <svg class="volume-svg" overflow='visible'></svg>
+        </div>
+        <div class="empire">
+            <svg class="empire-svg" overflow='visible'></svg>
+        </div>
+    </div>
+    <div id='footer'></div>
+
+    <script defer>
+        var margin = {top:20, left:50, right:20, bottom:30}
+        var vWidth = 1000 - margin.left - margin.right,
+            vHeight = 400 - margin.top - margin.bottom;
+        var topicBoxHeight = 20;
+        var buttonWidth = 230;
+        var buttonHeight = 25;
+        var parseMonth = d3.time.format("%Y-%m").parse,
+            parseDay = d3.time.format("%Y-%m-%d").parse,
+            formatPercent = d3.format(".0%");
+        var x = d3.time.scale()
+                       .range([0, vWidth]);
+        var yE = d3.scale.linear()
+                        .range([vHeight, 0])
+                        .domain([0, 1]);
+        var yV = d3.scale.linear()
+                         .range([vHeight, 0]);
+        var color = d3.scale.ordinal()
+                            .range(["#A89FC9", "#76D74A", "#CE4B3B",
+                                    "#42503B", "#CC53CD", "#82D39A",
+                                    "#CBA88E", "#C45085", "#C38737",
+                                    "#4E3E64", "#D0D051", "#608638",
+                                    "#6E3531", "#796DCA", "#7FBFC3"]);
+        var xAxis = d3.svg.axis()
+                          .scale(x)
+                          .orient("bottom");
+        var yAxisE = d3.svg.axis()
+                          .scale(yE)
+                          .orient("left")
+                          .tickFormat(formatPercent);
+        var yAxisV = d3.svg.axis()
+                                .scale(yV)
+                                .orient("left");
+        var areaE = d3.svg.area()
+                          .interpolate("monotone")
+                          .x(function(d) { return x(d.date); })
+                          .y0(function(d) { return yE(d.y0); })
+                          .y1(function(d) { return yE(d.y0 + d.y); });
+        var areaV = d3.svg.area()
+                          .interpolate("monotone")
+                          .x(function(d) { return x(d.date); })
+                          .y0(function(d) { return yV(d.y0); })
+                          .y1(function(d) { return yV(d.y0 + d.y); });
+        // var areaVSolo = d3.svg.area()
+        //                       .interpolate("monotone")
+        //                       .x(function(d) { return x(d.date); })
+        //                       .y0(function(d) { return yV(0); })
+        //                       .y1(function(d) { return yV(d.y); });
+        var vStack = d3.layout.stack()
+                            .offset("stacked")
+                            .values(function(d) { return d.values; });
+        var eStack = d3.layout.stack()
+                            .offset("expand")
+                            .values(function(d) { return d.values; });
+        var vSvg = d3.select(".volume-svg")
+                           .attr("width", vWidth)
+                           .attr("height", vHeight)
+                           .attr("transform", "translate("+margin.left+","+margin.top+")");
+        var eSvg = d3.select(".empire-svg")
+                           .attr("width", vWidth)
+                           .attr("height", vHeight)
+                           .attr("transform", "translate("+margin.left+","+margin.top+")");
+
+        d3.csv("../topic_months3.csv", function(error, data){
+        // Load data into variables
+
+            // allTopics: list of topic names
+            var allTopics = d3.keys(data[0]).filter(function(key) { return key !== "date"; });
+            var numTopics = allTopics.length;
+            color.domain(allTopics);
+            d3.select(".legend")
+              .attr("height", (numTopics+2) * topicBoxHeight);
+            d3.select(".legend-topics")
+              .attr("height", (numTopics+2) * topicBoxHeight);
+
+            // activeTopics: list of topic names for currently active topics
+            var activeTopics = [];
+
+            // add month to data
+            data.forEach(function(d) {
+                d.month = parseMonth(d.date);
+            });
+
+            // set x domain: currently just months!
+            x.domain(d3.extent(data, function(d) { return d.month; }));
+
+        // SVG Functions
+            // emptyAxes: plots the volume and empire axes without any data
+            var emptyAxes = function(){
+                vSvg.html('');
+                eSvg.html('');
+                yV.domain([0, 100]);
+                vSvg.append("g")
+                     .attr("class", "x axis")
+                     .attr("transform", "translate(0," + vHeight + ")")
+                     .call(xAxis);
+                vSvg.append("g")
+                     .attr("class", "y axis")
+                     .call(yAxisV);
+                eSvg.append("g")
+                     .attr("class", "x axis")
+                     .attr("transform", "translate(0," + vHeight + ")")
+                     .call(xAxis);
+                eSvg.append("g")
+                     .attr("class", "y axis")
+                     .call(yAxisE);
+            };
+            // maxVolume: returns the maximum combined volume of activeTopics
+            var maxVolume = function(vdata){
+                return d3.max(vdata[vdata.length-1].values, function(d){return d.y + d.y0;});
+            };
+            // plotVolumes: plots active topics on volume-svg
+            var plotVolumes = function(){
+                vSvg.html('');
+                var volumeData = activeTopics.map(function(name) {
+                    return {
+                      name: name,
+                      values: data.map(function(d) {
+                        return {date: d.month, y: parseFloat(d[name])};
+                      })
+                    }
+                });
+                vStack(volumeData);
+                yV.domain([0, maxVolume(volumeData)]);
+                var volumeTopic = vSvg.selectAll(".volumeTopic")
+                                      .data(volumeData)
+                                      .enter().append("g")
+                                      .attr("class", "volumeTopic");
+                volumeTopic.append("path")
+                           .attr("class", "area")
+                           .attr("id", function(d) { return "volume_" + d.name; })
+                           .attr("d", function(d) { return areaV(d.values); })
+                           .style("fill", function(d) { return color(d.name); });
+                vSvg.append("g")
+                         .attr("class", "x axis")
+                         .attr("transform", "translate(0," + vHeight + ")")
+                         .call(xAxis);
+                vSvg.append("g")
+                         .attr("class", "y axis")
+                         .call(yAxisV);
+            };
+            // plotEmpires: plots active topics on empire-svg
+            var plotEmpires = function(){
+                eSvg.html('');
+                var empireData = activeTopics.map(function(name) {
+                    return {
+                      name: name,
+                      values: data.map(function(d) {
+                        return {date: d.month, y: parseFloat(d[name])};
+                      })
+                    }
+                });
+                eStack(empireData);
+                var empireTopic = eSvg.selectAll(".empireTopic")
+                                      .data(empireData)
+                                      .enter().append("g")
+                                      .attr("class", "empireTopic");
+                empireTopic.append("path")
+                           .attr("class", "area")
+                           .attr("id", function(d) { return "empire_" + d.name; })
+                           .attr("d", function(d) { return areaE(d.values); })
+                           .style("fill", function(d) { return color(d.name); });
+                eSvg.append("g")
+                         .attr("class", "x axis")
+                         .attr("transform", "translate(0," + vHeight + ")")
+                         .call(xAxis);
+                eSvg.append("g")
+                         .attr("class", "y axis")
+                         .call(yAxisE);
+            };
+            // plotButtons: builds legend buttons
+            var plotButtons = function(){
+                var buttons = d3.select(".legend-general")
+                                .append("g")
+                                .data([5])
+                                .attr("class", "general-buttons");
+                buttons.append("rect")
+                       .attr("class", "button")
+                       .attr("width", buttonWidth)
+                       .attr("height", buttonHeight)
+                       .style("fill", "#000000")
+                       .on("click", plotRandomTopics);
+                buttons.append("rect")
+                      .attr("class", "button")
+                      .attr("width", buttonWidth)
+                      .attr("height", buttonHeight)
+                      .attr("transform", "translate(0,30)")
+                      .style("fill", "#000000")
+                      .on("click", clearAllTopics);
+                buttons.append("text")
+                       .attr("class", "button-text")
+                       .attr("dx", 5)
+                       .attr("dy", 15)
+                       .text("SELECT RANDOM TOPICS")
+                       .attr("fill", "#FFFFFF")
+                       .on("click", plotRandomTopics);
+                buttons.append("text")
+                       .attr("class", "button-text")
+                       .attr("dx", 5)
+                       .attr("dy", 45)
+                       .text("CLEAR ALL TOPICS")
+                       .attr("fill", "#FFFFFF")
+                       .on("click", clearAllTopics);
+
+            };
+            // plotLegend: builds legend topic buttons
+            var plotLegend = function(){
+                var legendRow = d3.select(".legend-topics")
+                               .selectAll("g")
+                               .data(allTopics)
+                               .enter().append("g")
+                               .attr("class", "topic-group")
+                               .attr("transform", function(d, i){
+                                   return "translate(0," + i * topicBoxHeight + ")";
+                               });
+                legendRow.append("rect")
+                      .attr("class", "legend-box")
+                      .attr("width", buttonWidth)
+                      .attr("height", topicBoxHeight)
+                      .style("fill", function(d){ return color(d); })
+                      .on("click", clickLegend);
+                legendRow.append("text")
+                      .attr("class", "legend-text")
+                      .attr("dx", 5)
+                      .attr("dy", 15)
+                      .text(function(d){ return d; })
+                      .on("click", clickLegend);
+            };
+            // plotRandomTopics: selects n random topics and plots them
+            var plotRandomTopics = function(n){
+                var r = '';
+                activeTopics = [];
+                while (activeTopics.length < n){
+                    r = allTopics[Math.floor(Math.random() * allTopics.length)];
+                    if (activeTopics.indexOf(r) === -1){
+                        activeTopics.push(r);
+                    }
+                };
+                plotEmpires()
+                plotVolumes()
+            };
+
+        // Click / Mouseover Functions
+            // clickLegend: routes the click appropriately
+            var clickLegend = function(t){
+                if (activeTopics.indexOf(t) === -1){
+                    clickTopicOn(t);
+                } else {
+                    clickTopicOff(t);
+                };
+            };
+            // clickTopicOn: selects a topic, refreshes plots accordingly
+            var clickTopicOn = function(t){
+                activeTopics.push(t);
+                console.log("we clicked " + t)
+                plotVolumes()
+                plotEmpires()
+            };
+            // clickTopicOff: deselects a topic, refreshes plots accordingly
+            var clickTopicOff = function(t){
+                var index = activeTopics.indexOf(t);
+                activeTopics.splice(index, 1);
+
+                plotVolumes()
+                plotEmpires()
+            };
+            // clearAllTopics: deselects all topics
+            var clearAllTopics = function(){
+                // empty activeTopics
+                activeTopics = [];
+                // refresh topic buttons
+                emptyAxes()
+            };
+
+        // Initial Load!
+            plotButtons()
+            plotLegend()
+            plotRandomTopics(5)
+        });
+    </script>
+</body>
+</html>
