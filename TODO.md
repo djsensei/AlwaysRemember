@@ -1,23 +1,16 @@
-### Topic Modeling
-1. Finalize the topics! I _can_ come back to it, but the pipeline from that point forward will eat up time...
-2. Consider stemming the documents? It might take a while, and it might screw up some proper names, but it could also decrease the vocabulary size substantially and make the TFIDF stronger.
-3. Explore Guantanamo spelling, since there's a funky a in there sometimes?
-4. Explore docs around ~2005 since there's a weird dropoff. Are we scraping full text improperly?
+## Priority List
+1. Run giant modeling TFIDF NMF job on AWS - 100k terms, 200 topics, 100 top words?
+  * If that model isn't super great, just stick with the 50 or 100 topic model I already built.
+2. Explore 2005 dropoff, find and plug the full_text leak (or figure out why there isn't one)
+3. Inspect 100 topic 20k term model: is it better than the 50 topic model?
+4. Smooth and Finish analysis pipeline: Output topic term dicts and example articles so that D3 can use them!
+  * JSON file secondary to main csv?
+5. How to handle smaller-timeframe analysis shortly after attacks in the viz?
+  * What about zooming/panning the main timeline?
+6. Feedback on presentation, jazz it up. 
 
-### Analysis
-1. Ensure that the same top article isn't returned for every topic (see: state of the union address)
-  * If an article appears twice, find the topic that it has a higher score, then take the second article for the other topics. Repeat until unique articles. `len(set(L)) == len(L)`
-2. Finish+Test empire plot frequency function
-3. Make sure outputs are friendly for pushing to D3 (probably csvs?)
-4. See if word count has something to do with how much a document matches the topics. It seems like longer documents have more matches (see: state of the union address...)
-  * If so, figure out a way to scale it so the matches are more meaningful. Divide by word count, perhaps?
-
-### Visualization Planning
-1. Which visualizations will I focus on?
-  1. How will they be laid out?
-  2. How interactive will they be?
-    * Martini glass style?
-  3. What data sources (csvs?) do I need to build to support them?
-
-### Bonus Jazz
-1. Proper Name formatting: Write function to parse through cleandocs vs. full text to determine if a word is always capitalized. If so, it's a proper name! Ensure that it is capitalized in the viz too, somehow.
+## Secondary List
+1. Compile "keywords" (Names of "characters"?) that will be familiar to everyone, and automate the process for outputting their topic weights: easy bar graphs!
+  * Proper Name Formatting: compare clean text to full text, see how often a word is capitalized.
+2. Topic Term lists: remove duplicates ("al", "al qaeda", "qaeda") before displaying...
+3. Stemming/Lemmatizing docs before TFIDF? Not sure if there's time to run everything again after that...
