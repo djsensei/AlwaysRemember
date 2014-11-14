@@ -168,7 +168,10 @@ def get_full_text(web_url):
         return ''
 
     # Deal with the different formattings of articles in HTML
-    if s.find('nyt_text'):
+    if s.find('p', {'itemprop': 'articleBody'}) is not None:
+        paragraphs = s.findAll('p', {'itemprop': 'articleBody'})
+        story = ' '.join([p.text for p in paragraphs])
+    elif s.find('nyt_text'):
         story = s.find('nyt_text').text
     elif s.find('div', {'id': 'mod-a-body-first-para'}):
         story = s.find('div', {'id': 'mod-a-body-first-para'}).text
@@ -176,9 +179,6 @@ def get_full_text(web_url):
     else:
         if s.find('p', {'class': 'story-body-text'}) is not None:
             paragraphs = s.findAll('p', {'class': 'story-body-text'})
-            story = ' '.join([p.text for p in paragraphs])
-        elif s.find('p', {'itemprop': 'articleBody'}) is not None:
-            paragraphs = s.findAll('p', {'itemprop': 'articleBody'})
             story = ' '.join([p.text for p in paragraphs])
         else:
             story = ''
@@ -197,13 +197,16 @@ def load_full_texts(table, verbose=False):
     INPUT:  mongo-collection - table, bool - verbose
     OUTPUT: None
     '''
-    for record in table.find({'document_type': 'article', 'full_text': ''}):
+    for record in table.find({'document_type': 'article',
+                              'full_text': '',
+                              'type_of_material': 'News'}):
         story = get_full_text(record['web_url'])
         if verbose:
             print story[:100]
-        table.update({'web_url': record['web_url']},
-                     {'$set': {'full_text': story}},
-                     upsert=True)
+        if story != '':
+            table.update({'web_url': record['web_url']},
+                         {'$set': {'full_text': story}},
+                         upsert=True)
 
 
 def load_full_texts_from_docs(table, docs, verbose=False):

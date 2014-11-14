@@ -1,6 +1,7 @@
 body{
     background-color: #DDDDDD;
     font-family: Times;
+    overflow:scroll;
 }
 /*#header{
     width:100%;
@@ -42,6 +43,7 @@ div.button-text{
     margin-left:10px;
     width:230px;
     height:100%;
+    overflow:scroll;
 }
 .legend-box{
     width:230px;

@@ -40,11 +40,16 @@
         var yV = d3.scale.linear()
                          .range([vHeight, 0]);
         var color = d3.scale.ordinal()
-                            .range(["#A89FC9", "#76D74A", "#CE4B3B",
-                                    "#42503B", "#CC53CD", "#82D39A",
-                                    "#CBA88E", "#C45085", "#C38737",
-                                    "#4E3E64", "#D0D051", "#608638",
-                                    "#6E3531", "#796DCA", "#7FBFC3"]);
+                      .range(["#34533C","#DD44E2","#E34E2C","#61E545","#6997DA",
+                      "#883064","#5EE3BA","#DECB2F","#D1A671","#602918",
+                      "#E2B7D0","#4E8833","#D07ACD","#485D79","#D5415C",
+                      "#646DD9","#E19435","#A5D565","#683D8B","#539C76",
+                      "#C0D4D0","#938784","#DB3A87","#60DD84","#ADDC9C",
+                      "#976E26","#DE8878","#A66D89","#3B2B51","#4C8485",
+                      "#7B6347","#6DD7D5","#B6E43C","#312D2B","#581F35",
+                      "#7BB4D4","#A33692","#D7D1A7","#57B334","#3F4A14"
+                      ,"#859150","#B190CB","#AA4028","#CFC65D","#9D514F"
+                      ,"#DC73A4","#E248BD","#4D599A","#B358D9","#AF7AE5"]);
         var xAxis = d3.svg.axis()
                           .scale(x)
                           .orient("bottom");
@@ -85,7 +90,7 @@
                            .attr("height", vHeight)
                            .attr("transform", "translate("+margin.left+","+margin.top+")");
 
-        d3.csv("../topic_months3.csv", function(error, data){
+        d3.csv("../test_output5.csv", function(error, data){
         // Load data into variables
 
             // allTopics: list of topic names
@@ -102,7 +107,7 @@
 
             // add month to data
             data.forEach(function(d) {
-                d.month = parseMonth(d.date);
+                d.month = parseDay(d.date);
             });
 
             // set x domain: currently just months!
