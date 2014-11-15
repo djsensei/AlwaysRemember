@@ -15,9 +15,22 @@
         </div>
         <div class="volume">
             <svg class="volume-svg" overflow='visible'></svg>
+            <svg class="article-helper" overflow='visible'></svg>
+        </div>
+        <div class="information-container">
+            <div class="active-topics-display">
+                <svg class="active-topics-svg"></svg>
+            </div>
+            <div class="article-info">
+                <p class="pub_date headline web_url"></p>
+                <p class="lead_paragraph"></p>
+            </div>
         </div>
         <div class="empire">
             <svg class="empire-svg" overflow='visible'></svg>
+        </div>
+        <div class="alpha">
+            <svg class="alpha-svg", overflow='visible'></svg>
         </div>
     </div>
     <div id='footer'></div>
@@ -30,6 +43,7 @@
         var buttonWidth = 230;
         var buttonHeight = 25;
         var parseMonth = d3.time.format("%Y-%m").parse,
+            stringMonth = d3.time.format("%Y-%m"),
             parseDay = d3.time.format("%Y-%m-%d").parse,
             formatPercent = d3.format(".0%");
         var x = d3.time.scale()
@@ -89,16 +103,31 @@
                            .attr("width", vWidth)
                            .attr("height", vHeight)
                            .attr("transform", "translate("+margin.left+","+margin.top+")");
+        var activeTopicSvg = d3.select(".active-topics-svg")
+                               .attr("width", buttonWidth)
+                               .attr("height", 200)
+                               .attr("transform", "translate("+margin.left+","+margin.top+")");
+        var articleHelperSvg = d3.select(".article-helper")
+                                 .attr("width", vWidth)
+                                 .attr("height", 100)
+                                 .attr("transform", "translate("+margin.left+",0)");
+        // var articleTip = d3.tip()
+        //                    .attr("class", "articleTip")
+        //                    .offset([-10, 0])
+        //                    .html(function(t){
+        //                        return "<p class='articleTipText'>" + jsondata[t]"</p><p class='articleTipLink'><a href=></a></p>"
+        //                    })
 
-        d3.csv("../test_output5.csv", function(error, data){
+        d3.csv("../test_output7.csv", function(error, data){
+        d3.json("../filtered_best_articles.json", function(jsondata){
         // Load data into variables
 
             // allTopics: list of topic names
             var allTopics = d3.keys(data[0]).filter(function(key) { return key !== "date"; });
             var numTopics = allTopics.length;
             color.domain(allTopics);
-            d3.select(".legend")
-              .attr("height", (numTopics+2) * topicBoxHeight);
+            // d3.select(".legend")
+            //   .attr("height", (numTopics+2) * topicBoxHeight);
             d3.select(".legend-topics")
               .attr("height", (numTopics+2) * topicBoxHeight);
 
@@ -118,6 +147,7 @@
             var emptyAxes = function(){
                 vSvg.html('');
                 eSvg.html('');
+                activeTopicsSvg.html('');
                 yV.domain([0, 100]);
                 vSvg.append("g")
                      .attr("class", "x axis")
@@ -159,7 +189,8 @@
                            .attr("class", "area")
                            .attr("id", function(d) { return "volume_" + d.name; })
                            .attr("d", function(d) { return areaV(d.values); })
-                           .style("fill", function(d) { return color(d.name); });
+                           .style("fill", function(d) { return color(d.name); })
+                           .on("click", volumeClick);
                 vSvg.append("g")
                          .attr("class", "x axis")
                          .attr("transform", "translate(0," + vHeight + ")")
@@ -201,7 +232,7 @@
             var plotButtons = function(){
                 var buttons = d3.select(".legend-general")
                                 .append("g")
-                                .data([5])
+                                .data([3])
                                 .attr("class", "general-buttons");
                 buttons.append("rect")
                        .attr("class", "button")
@@ -267,8 +298,70 @@
                 };
                 plotEmpires()
                 plotVolumes()
+                plotActiveTopics()
             };
+            // plotArticle: plots information about an article on the page!
+            var plotArticle = function(d){
+                d3.select(".article-info .pub_date.headline.web_url")
+                  .html(
+                      d.article.pub_date + " - <a href=" + d.article.web_url +
+                      " target='_blank'>" + d.article.headline.main + "</a>"
+                  );
+                d3.select(".article-info .lead_paragraph")
+                  .text(d.article.lead_paragraph);
+            };
+            var plotActiveTopics = function(){
+                activeTopicSvg.html('');
+                var ats = d3.select(".active-topics-svg")
+                            .selectAll("g")
+                            .data(activeTopics)
+                            .enter().append("g")
+                            .attr("class", "topic-group")
+                            .attr("transform", function(d, i){
+                                return "translate(0," + i * topicBoxHeight + ")";
+                            });
+                ats.append("rect")
+                   .attr("class", "legend-box")
+                   .attr("width", buttonWidth)
+                   .attr("height", topicBoxHeight)
+                   .style("fill", function(d){ return color(d); })
+                   .on("click", clickLegend);
+                ats.append("text")
+                      .attr("class", "legend-text")
+                      .attr("dx", 5)
+                      .attr("dy", 15)
+                      .text(function(d){ return d; })
+                      .on("click", clickLegend);
 
+                plotArticleHelper()
+            };
+            var plotArticleHelper = function(){
+                articleHelperSvg.html('');
+                var articleData = activeTopics.map(function(name) {
+                    return {
+                      name: name,
+                      values: jsondata[name]
+                    };
+                });
+
+                // load all articles for active topics into this list
+                var articles = [];
+                articleData.forEach(function(t){
+                    for (var key in t.values){
+                        articles.push({'topic': t.name, 'article': t.values[key]});
+                    };
+                });
+                var circles = articleHelperSvg.selectAll(".articleCircle")
+                                .data(articles);
+                circles.enter().append("circle")
+                       .attr("class", "articleCircle")
+                       .attr("r", 8)
+                       .attr("cy", 50)
+                       .attr("cx", function(d){ return x(parseDay(d.article.pub_date)); })
+                       .style("fill", function(d){ return color(d.topic); })
+                       .on("click", plotArticle);
+
+            };
         // Click / Mouseover Functions
             // clickLegend: routes the click appropriately
             var clickLegend = function(t){
@@ -281,9 +374,9 @@
             // clickTopicOn: selects a topic, refreshes plots accordingly
             var clickTopicOn = function(t){
                 activeTopics.push(t);
-                console.log("we clicked " + t)
                 plotVolumes()
                 plotEmpires()
+                plotActiveTopics()
             };
             // clickTopicOff: deselects a topic, refreshes plots accordingly
             var clickTopicOff = function(t){
@@ -292,6 +385,7 @@
 
                 plotVolumes()
                 plotEmpires()
+                plotActiveTopics()
             };
             // clearAllTopics: deselects all topics
             var clearAllTopics = function(){
@@ -300,12 +394,24 @@
                 // refresh topic buttons
                 emptyAxes()
             };
+            var volumeClick = function(t){
+                var month = stringMonth(x.invert(d3.event.pageX - 300));
+                // console.log(t.name + ' ' + month);
+                // console.log(jsondata[t.name]);
+                var article = null;
+                var d = jsondata[t.name][month];
+                if (d !== undefined){
+                    plotArticle(d)
+                };
+            };
 
         // Initial Load!
             plotButtons()
             plotLegend()
-            plotRandomTopics(5)
-        });
+            plotRandomTopics(3)
+            plotActiveTopics()
+            plotArticleHelper()
+        });});
     </script>
 </body>
 </html>

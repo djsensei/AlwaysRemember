@@ -6,13 +6,27 @@ import numpy as np
 import pandas as pd
 from mongo_stuff import just_clean_text
 from collections import Counter
+import simplejson as json
 
 
 class TopicAnalyzer(object):
-    def __init__(self, vec_file, H_file):
+    '''
+    Loads the vectorizer and H matrix necessary for document topic analysis.
+    Performs large-scale analysis on the corpus.
+
+    INPUT:  filelike - vec_file vectorizer, filelike - H topic-term matrix,
+            np array - topic_filter booleans
+    '''
+    def __init__(self, vec_file, H_file, topic_filter=None):
         self.vectorizer = pickle.load(open(vec_file))
-        self.H = pickle.load(open(H_file))
+        self.topic_filter = topic_filter
+        H = pickle.load(open(H_file))
+        if topic_filter is not None:
+            self.H = H[topic_filter]
+        else:
+            self.H = H
         self.num_topics = self.H.shape[0]
+
 
     def topic_freq_by_date_range(self, table, start_date, end_date,
                                  n_articles=1, topic_freq_threshold=.1):
@@ -113,7 +127,7 @@ class TopicAnalyzer(object):
         df.to_csv(open(csv_file, 'w'), index_label='date')
 
     def store_topic_weights(self, table, model_name, normalize='linear',
-                            verbose=False):
+                            min_doc_length=None, verbose=False):
         '''
         Calculates topic weights for each record in the table, storing them
             back into the record for easy future access. Normalize takes
@@ -138,6 +152,8 @@ class TopicAnalyzer(object):
             # push through model to get weights
             doc = record['clean_text']
             L = len(doc.split())
+            if min_doc_length is not None and L < min_doc_length:
+                continue
             x = self.vectorizer.transform([doc])
             dtf = x.dot(self.H.T)
 
@@ -194,6 +210,7 @@ def smooth_time_series(table, model_name, topic_names, output_csv,
                            index=pd.DatetimeIndex(pubdates))
 
     bts = [None] * num_topics
+    offset = pd.offsets.Week(month_interval * 2)
 
     if normalize:
         # determine articles per month for scaling
@@ -204,40 +221,106 @@ def smooth_time_series(table, model_name, topic_names, output_csv,
             bts[i] = pd.rolling_mean(pd.TimeSeries(data=bdf[i],
                     index=bdf.index).resample('M', how='sum'),
                     month_interval) / abm
+            bts[i].index = bts[i].index - offset
     else:
         for i in range(num_topics):
             bts[i] = pd.rolling_mean(pd.TimeSeries(data=bdf[i],
                     index=bdf.index).resample('M', how='sum'),
                     month_interval)
+            bts[i].index = bts[i].index - offset
 
     outputdf = pd.concat([s for s in bts], axis=1).fillna(0)
     outputdf.columns = topic_names
     outputdf.to_csv(output_csv, index_label='date')
 
 
-def get_example_articles(table, model_name, n_examples=10):
+def get_best_articles_per_month(table, model_name, start_date='2001-09',
+                                end_date='2014-11', verbose=False):
     '''
 
     '''
     query = {model_name: {'$exists':True}, 'type_of_material':'News'}
     num_topics = len(table.find_one(query)[model_name])
-    cursor = table.find(query)
+
+    dates = [start_date]
+    while dates[-1] != _next_month(end_date):
+        dates.append(_next_month(dates[-1]))
+    best_articles = {}
+    for d in range(len(dates) - 1):
+        if verbose:
+            print 'selecting best articles for ', dates[d]
+        best_this_month = [(None, 0.0)] * num_topics
+        query['pub_date'] = {'$gte': dates[d], '$lt': dates[d + 1]}
+        cursor = table.find(query)
+        for record in cursor:
+            w = record[model_name]
+            for i, v in enumerate(w):
+                if v > best_this_month[i][1]:
+                    best_this_month[i] = (record['_id'], v)
+        best_articles[dates[d]] = best_this_month
+
+    return best_articles
 
     # years = [str(y) for y in range(2002, 2014)]
     # start_months = ['01', '04', '07', '10', '13']
 
-    topic_examples = {i: [(0, None)] * n_examples for i in range(num_topics)}
+    # topic_examples = {i: [(0, None)] * n_examples for i in range(num_topics)}
+    #
+    # for record in cursor:
+    #     w = record[model_name]
+    #     for i, v in enumerate(w):
+    #         if v > topic_examples[i][-1][0]:
+    #             topic_examples[i][-1] = (v, record['_id'])
+    #             topic_examples[i] = sorted(topic_examples[i],
+    #                                        key=lambda x: x[0],
+    #                                        reverse=True)
+    #
+    # return topic_examples
 
-    for record in cursor:
-        w = record[model_name]
-        for i, v in enumerate(w):
-            if v > topic_examples[i][-1][0]:
-                topic_examples[i][-1] = (v, record['_id'])
-                topic_examples[i] = sorted(topic_examples[i],
-                                           key=lambda x: x[0],
-                                           reverse=True)
 
-    return topic_examples
+def compile_best_article_json(table, best_articles, topic_list, outputfile):
+    '''
+    Takes best_articles dict from get_best_articles_per_month, gets extra
+        article information from the table, and creates a JSON file that
+        the D3 front-end can use to display tooltip articles.
+
+    '''
+    num_topics = len(topic_list)
+    topic_dict = {i:[] for i in range(num_topics)}
+    for month, topics in best_articles.iteritems():
+        for i, t in enumerate(topics):
+            record = table.find_one({'_id': t[0]})
+            d = {'pub_date': record['pub_date'][:10],
+                 'lead_paragraph': record['lead_paragraph'],
+                 'headline': record['headline'],
+                 'web_url': record['web_url'],
+                 'weight': t[1],
+                 '_id': t[0]}
+            topic_dict[i].append(d)
+    for i, t in enumerate(topic_list):
+        topic_dict[t] = topic_dict.pop(i)
+
+    json.dump(topic_dict, open(outputfile, 'w'))
+
+
+def filter_best_article_json(filename=None, jsond=None, threshold=.001):
+    '''
+    Filters out articles below the threshold. Input either a filename for
+        a JSON file or the json dictionary itself.
+
+    '''
+    if filename is not None:
+        baj = json.load(open(filename))
+    else:
+        baj = jsond
+    filtered_baj = {k: [] for k in baj.keys()}
+    for k, L in baj.iteritems():
+        high_enough = []
+        for article in L:
+            if article['weight'] >= threshold:
+                high_enough.append(article)
+        filtered_baj[k] = high_enough
+    return filtered_baj
 
 
 def _normalize_frequencies(f):

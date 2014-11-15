@@ -89,6 +89,22 @@ def clean_all_docs(table, overwrite=False, verbose=False):
                      upsert=True)
 
 
+def docs_tfidf(clean_articles, max_features=5000, ngram_range=(1, 1),
+               max_df=.8):
+    '''
+    Builds a TF-IDF vectorizer using a list of clean article strings.
+
+    INPUT:  list - clean_articles, int - max_features,
+            tuple - ngram_range, float - max_df
+    OUTPUT: 2d sparse numpy array - X feature matrix,
+            vectorizer object - vec
+    '''
+    vec = TfidfVectorizer(max_features=max_features,
+                          ngram_range=ngram_range,
+                          max_df=max_df)
+    X = vec.fit_transform(articles)
+    return X, vec
+
 def table_tfidf(table, query={}, max_features=5000, ngram_range=(1, 1),
                 max_df=.8):
     '''
@@ -115,15 +131,15 @@ def table_tfidf(table, query={}, max_features=5000, ngram_range=(1, 1),
     return X, vec, article_ids
 
 
-def basic_nmf(X, n_topics=20):
+def basic_nmf(X, n_topics=20, **kwargs):
     '''
     Performs NMF on the TF-IDF feature matrix to create a topic model.
 
-    INPUT:  2d numpy array - X, int - n_topics
+    INPUT:  2d numpy array - X, int - n_topics, **kwargs for NMF parameters
     OUTPUT: 2d numpy array - W (Article-Topic matrix),
             2d numpy array - H (Topic-Term matrix)
     '''
-    nmf = NMF(n_components=n_topics)
+    nmf = NMF(n_components=n_topics, **kwargs)
     W = nmf.fit_transform(X)
     H = nmf.components_
     return W, H
@@ -263,7 +279,7 @@ def human_topic_analysis(topic_dicts):
         print '\n'
         # get name and classification
         name = raw_input("Name this topic: ")
-        keep = bool(raw_input("Keep? (0 or 1): "))
+        keep = int(raw_input("Keep? (0 or 1): "))
         if name == 'Q':
             return output
         # push to list
