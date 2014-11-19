@@ -14,7 +14,7 @@
             <div class='subtitle-header'>News Topics from September 11 to the Present</div>
         </div>
         <div class="description">
-            <div class='project-description'>Inspired by the <a href='http://www.fastcodesign.com/3030603/new-museum-uses-algorithms-to-visualize-how-9-11-still-shapes-the-world' target=_blank>Timescape</a> exhibit at the <a href='http://www.911memorial.org/museum' target=_blank>9/11 Memorial Museum</a>, I used data science to explore the ways that 9/11 has transformed our world. To create these topics, I used <a href='http://en.wikipedia.org/wiki/Tf%E2%80%93idf' target=_blank>TF-IDF vectorization</a> and <a href='http://en.wikipedia.org/wiki/Non-negative_matrix_factorization' target=_blank>non-negative matrix factorization</a> on a corpus of about 50,000 New York Times articles. I formed 200 topics and then manually inspected the key terms of each to remove those which were irrelevant, vague, or overly-specific to individual documents. What remains is a broad spectrum of topics and people who became prominent or notorious as a result of 9/11 and its aftermath.</div>
+            Inspired by the <a href='http://www.fastcodesign.com/3030603/new-museum-uses-algorithms-to-visualize-how-9-11-still-shapes-the-world' target=_blank>Timescape</a> exhibit at the <a href='http://www.911memorial.org/museum' target=_blank>9/11 Memorial Museum</a>, I used data science to explore the ways that 9/11 has transformed our world. To create these topics, I used <a href='http://en.wikipedia.org/wiki/Tf%E2%80%93idf' target=_blank>TF-IDF vectorization</a> and <a href='http://en.wikipedia.org/wiki/Non-negative_matrix_factorization' target=_blank>non-negative matrix factorization</a> on a corpus of about 50,000 New York Times articles. I formed 200 topics and then manually inspected the key terms of each to remove those which were irrelevant, vague, or overly-specific to individual documents. What remains is a broad spectrum of topics and people who became prominent or notorious as a result of 9/11 and its aftermath.
         </div>
     </div>
     <div class="viz-container">
@@ -45,7 +45,7 @@
     </div>
     <div class='footer'>
         <p class='footer-text'>Dan Morris built this as a capstone project for the <a href='http://www.zipfianacademy.com' target=_blank>Zipfian Academy</a> Data Science immersive program. <a href='http://github.com/djsensei/NeverForget' target=_blank>The source code lives here.</a></p>
-        <p class='footer-text'>If you're interested in hiring Dan to solve your data science problems, email him at daniel.e.morris -at- gmail -dot- com</p>
+        <p class='footer-text'>Hire Dan to solve your data science problems! Email daniel.e.morris -at- gmail -dot- com</p>
     </div>
 
     <script defer>
@@ -53,7 +53,7 @@
         var vWidth = 1000 - margin.left - margin.right,
             vHeight = 400 - margin.top - margin.bottom;
         var topicBoxHeight = 22;
-        var buttonWidth = 300;
+        var buttonWidth = 240;
         var buttonHeight = 25;
         var parseMonth = d3.time.format("%Y-%m").parse,
             stringMonth = d3.time.format("%Y-%m"),
@@ -211,11 +211,9 @@
                                .style("top", function(d, i){
                                    return i * topicBoxHeight;
                                });
-                legendRow.style("width", buttonWidth)
-                          .style("height", topicBoxHeight)
-                          .style("background-color", function(d){ return color(d); })
+                legendRow.style("background-color", function(d){ return color(d) })
                           .on("click", clickLegend)
-                          .on("mouseover", function(d) { plotTopicTerms(d);})
+                          .on("mouseover", function(d) { plotTopicTerms(d)})
                           .text(function(d){ return d; });
             };
             // plotRandomTopics: selects n random topics and plots them
@@ -300,10 +298,8 @@
                   .html('')
                   .style("background-color", color(t));
 
-                var terms = d3.select('.active-topic-info').selectAll('div')
-                              .data([topictermsdata[t]])
-                              .enter().append('div')
-                              .attr("class", "topic-term");
+                var terms = d3.select('.active-topic-info')
+                              .data([topictermsdata[t]]);
                 terms.text(function(d){ return d;});
             };
         // Click / Mouseover Functions

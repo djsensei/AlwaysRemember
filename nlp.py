@@ -106,6 +106,7 @@ def docs_tfidf(clean_articles, max_features=5000, ngram_range=(1, 1),
     X = vec.fit_transform(articles)
     return X, vec
 
+
 def table_tfidf(table, query={}, max_features=5000, ngram_range=(1, 1),
                 max_df=.8):
     '''
@@ -277,7 +278,15 @@ def concise_topics(topic_dicts, n=10):
     return concise
 
 
-def concise_topics_named(concise, topic_list):
+def concise_topics_named(concise, topic_list, json_filename):
+    '''
+    Filters the concise topics using topic_list, produces a JSON file
+        suitable for the visualization.
+
+    INPUT:  list - top terms per topic, list - topic names and weights,
+            string - filename
+    OUTPUT: None
+    '''
     topic_filter = np.array([bool(t[1]) for t in topic_list])
     topic_names = [t[0] for t in topic_list if t[1] == 1]
     concise = np.array(concise)[topic_filter]
@@ -285,7 +294,8 @@ def concise_topics_named(concise, topic_list):
     d = {}
     for i, name in enumerate(topic_names):
         d[name] = ', '.join(list(concise[i]))
-    return d
+
+    json.dump(d, open(json_filename, 'w'))
 
 
 def human_topic_analysis(topic_dicts):
