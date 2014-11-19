@@ -98,7 +98,7 @@ def date_process(pub_date):
 def many_queries(q=None, param_dict=None, max_pages=10, url=None):
     '''
     Queries the NYT API repeatedly to accumulate many documents.
-    Designed to scrape as many results from the given query as possible,
+    Designed to scrape as many results from the given query as possible
         at 10 results per page.
 
     INPUT:  string - q, dict - param_dict, int - max_pages
@@ -140,13 +140,17 @@ def load_mongo(table, docs):
     Adds new documents to the database.
 
     INPUT:  mongo-collection - table, list - document records
-    OUTPUT: None
+    OUTPUT: set - ids of docs already in the table
     '''
     # load new documents into mongo table, checking for existence using _id
+    ignore_ids = set()
     for d in docs:
-        d['full_text'] = ''
-        table.update({'_id': d['_id']}, d, upsert=True)
-
+        if table.find_one({'web_url': d['web_url']}) is None:
+            d['full_text'] = ''
+            table.update({'_id': d['_id']}, d, upsert=True)
+        else:
+            ignore_ids.add(d['_id'])
+    return ignore_ids
 
 def get_full_text(web_url):
     '''
@@ -199,14 +203,18 @@ def load_full_texts(table, verbose=False):
     '''
     for record in table.find({'document_type': 'article',
                               'full_text': '',
-                              'type_of_material': 'News'}):
+                              'type_of_material': 'News',
+                              'failed_scrape': {'$exists':False}}):
         story = get_full_text(record['web_url'])
         if verbose:
             print story[:100]
         if story != '':
-            table.update({'web_url': record['web_url']},
+            table.update({'_id': record['_id']},
                          {'$set': {'full_text': story}},
                          upsert=True)
+        else:
+            table.update({'_id': record['_id']},
+                         {'$set': {'failed_scrape': True}})
 
 
 def load_full_texts_from_docs(table, docs, verbose=False):
@@ -223,9 +231,13 @@ def load_full_texts_from_docs(table, docs, verbose=False):
             story = get_full_text(d['web_url'])
             if verbose and i % 50 == 0:
                 print 'doc ', i, ': ', story[:100]
-            table.update({'web_url': d['web_url']},
-                         {'$set': {'full_text': story}},
-                         upsert=True)
+            if story != '':
+                table.update({'_id': d['_id']},
+                             {'$set': {'full_text': story}},
+                             upsert=True)
+            else:
+                table.update({'_id': d['_id']},
+                             {'$set': {'failed_scrape': True}})
 
 
 def nyt_article_counts_by_day(ymd_start='20130101', ymd_end='20131231'):

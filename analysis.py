@@ -181,6 +181,10 @@ def smooth_time_series(table, model_name, topic_names, output_csv,
     Normalize divides each time-series by the total number of articles per
         month to get relative frequency rather than count.
 
+    INPUT:  mongo-collection - table, string - model_name, list - topic_names,
+            string - output_csv, bool - ranked, int - rank_number,
+            float - topic_threshold, int - month_interval, bool - normalize
+    OUTPUT: None
     '''
     startmonth = 10 - month_interval
     query = {model_name: {'$exists':True},
@@ -234,10 +238,73 @@ def smooth_time_series(table, model_name, topic_names, output_csv,
     outputdf.to_csv(output_csv, index_label='date')
 
 
+def get_best_articles_overall(table, model_name, topic_names,
+                              start_date='2001-09', end_date='2014-11',
+                              top_count=25):
+    '''
+    Finds the highest-weighed articles for each topic using a specified
+        model. Returns a dict for further processing.
+
+    INPUT:  mongo-collection - table, string - model_name,
+            list - topic_names, string - start_date, string - end_date,
+            int - top_count
+    OUTPUT: dict - lists of article ids keyed by topic
+    '''
+    query = {model_name: {'$exists':True}, 'type_of_material':'News',
+             'pub_date': {'$gt': start_date, '$lt': end_date}}
+    num_topics = len(topic_names)
+    N = table.find(query).count()
+
+    bests = {}
+    article_ids = [None] * N
+    article_weights = np.zeros((N, num_topics))
+    cursor = table.find(query)
+    for i, record in enumerate(cursor):
+        article_ids[i] = record['_id']
+        article_weights[i] = record[model_name]
+    article_ids = np.array(article_ids)
+
+    for i, topic in enumerate(topic_names):
+        best_ids = np.argsort(article_weights[:, i])[:-1-top_count:-1]
+        bests[topic] = article_ids[best_ids]
+
+    return bests
+
+
+def compile_overall_best_article_json(table, model_name, best_articles,
+                                      topic_names, outputfile):
+    '''
+    Takes best_articles dict from get_best_articles_overall, gets extra
+        article information from the table, and creates a JSON file that
+        the D3 front-end can use to display tooltip articles.
+
+    INPUT:  mongo-collection - table, string - model_name,
+            dict - best_articles, list - topic_names, string - outputfile
+    OUTPUT: None
+    '''
+    num_topics = len(topic_names)
+    topic_dict = {name:[] for name in topic_names}
+    for topic, articles in best_articles.iteritems():
+        for i, a in enumerate(articles):
+            record = table.find_one({'_id': a})
+            d = {'pub_date': record['pub_date'][:10],
+                 'lead_paragraph': record['lead_paragraph'],
+                 'headline': record['headline'],
+                 'web_url': record['web_url']}
+            topic_dict[topic].append(d)
+
+    json.dump(topic_dict, open(outputfile, 'w'))
+
+
 def get_best_articles_per_month(table, model_name, start_date='2001-09',
                                 end_date='2014-11', verbose=False):
     '''
+    Finds the highest-weighed article every month for each topic,
+        using a specified model. Returns a dict for further processing.
 
+    INPUT:  mongo-collection - table, string - model_name,
+            string - start_date, string - end_date, bool - verbose
+    OUTPUT: dict - best_articles keyed by month
     '''
     query = {model_name: {'$exists':True}, 'type_of_material':'News'}
     num_topics = len(table.find_one(query)[model_name])
@@ -261,29 +328,17 @@ def get_best_articles_per_month(table, model_name, start_date='2001-09',
 
     return best_articles
 
-    # years = [str(y) for y in range(2002, 2014)]
-    # start_months = ['01', '04', '07', '10', '13']
 
-    # topic_examples = {i: [(0, None)] * n_examples for i in range(num_topics)}
-    #
-    # for record in cursor:
-    #     w = record[model_name]
-    #     for i, v in enumerate(w):
-    #         if v > topic_examples[i][-1][0]:
-    #             topic_examples[i][-1] = (v, record['_id'])
-    #             topic_examples[i] = sorted(topic_examples[i],
-    #                                        key=lambda x: x[0],
-    #                                        reverse=True)
-    #
-    # return topic_examples
-
-
-def compile_best_article_json(table, best_articles, topic_list, outputfile):
+def compile_best_article_json(table, model_name, best_articles, topic_list,
+                              outputfile):
     '''
     Takes best_articles dict from get_best_articles_per_month, gets extra
         article information from the table, and creates a JSON file that
         the D3 front-end can use to display tooltip articles.
 
+    INPUT:  mongo-collection - table, string - model_name,
+            dict - best_articles, list - topic_list, string - outputfile
+    OUTPUT: None
     '''
     num_topics = len(topic_list)
     topic_dict = {i:[] for i in range(num_topics)}
@@ -295,7 +350,8 @@ def compile_best_article_json(table, best_articles, topic_list, outputfile):
                  'headline': record['headline'],
                  'web_url': record['web_url'],
                  'weight': t[1],
-                 '_id': t[0]}
+                 '_id': t[0],
+                 'weights_sum': sum(record[model_name])}
             topic_dict[i].append(d)
     for i, t in enumerate(topic_list):
         topic_dict[t] = topic_dict.pop(i)
@@ -308,6 +364,8 @@ def filter_best_article_json(filename=None, jsond=None, threshold=.001):
     Filters out articles below the threshold. Input either a filename for
         a JSON file or the json dictionary itself.
 
+    INPUT:  string - filename, dict - jsond, float - threshold
+    OUTPUT: dict - filtered json
     '''
     if filename is not None:
         baj = json.load(open(filename))

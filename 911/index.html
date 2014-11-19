@@ -1,0 +1,349 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>9/11 Topic Analysis</title>
+    <meta charset="utf-8">
+    <link href='style.css' rel='stylesheet' type='text/css'>
+    <link href='http://fonts.googleapis.com/css?family=Oswald:400,300,700' rel='stylesheet' type='text/css'>
+    <script src="d3.min.js"></script>
+</head>
+<body>
+    <div class='header'>
+        <div class='header-left'>
+            <div class='title-header'>Never Forget</div>
+            <div class='subtitle-header'>News Topics from September 11 to the Present</div>
+        </div>
+        <div class="description">
+            <div class='project-description'>Inspired by the <a href='http://www.fastcodesign.com/3030603/new-museum-uses-algorithms-to-visualize-how-9-11-still-shapes-the-world' target=_blank>Timescape</a> exhibit at the <a href='http://www.911memorial.org/museum' target=_blank>9/11 Memorial Museum</a>, I used data science to explore the ways that 9/11 has transformed our world. To create these topics, I used <a href='http://en.wikipedia.org/wiki/Tf%E2%80%93idf' target=_blank>TF-IDF vectorization</a> and <a href='http://en.wikipedia.org/wiki/Non-negative_matrix_factorization' target=_blank>non-negative matrix factorization</a> on a corpus of about 50,000 New York Times articles. I formed 200 topics and then manually inspected the key terms of each to remove those which were irrelevant, vague, or overly-specific to individual documents. What remains is a broad spectrum of topics and people who became prominent or notorious as a result of 9/11 and its aftermath.</div>
+        </div>
+    </div>
+    <div class="viz-container">
+        <div class="legend">
+            <div class='legend-general'></div>
+            <div class='legend-topics'></div>
+        </div>
+        <div class="viz">
+            <div class="information-container">
+                <div class="active-topics-container">
+                    <p class='active-topics-header'>Currently Selected Topics</p>
+                    <div class='active-topics-buttons'></div>
+                </div>
+                <div class='topic-info'>
+                    <p class='topic-info-header'>Key Terms</p>
+                    <div class='active-topic-info'></div>
+                </div>
+                <div class="article-info">
+                    <p class="article-headline"></p>
+                    <p class="lead_paragraph"></p>
+                </div>
+            </div>
+            <div class="volume">
+                <svg class="article-helper" overflow='visible'></svg>
+                <svg class="volume-svg" overflow='visible'></svg>
+            </div>
+        </div>
+    </div>
+    <div class='footer'>
+        <p class='footer-text'>Dan Morris built this as a capstone project for the <a href='http://www.zipfianacademy.com' target=_blank>Zipfian Academy</a> Data Science immersive program. <a href='http://github.com/djsensei/NeverForget' target=_blank>The source code lives here.</a></p>
+        <p class='footer-text'>If you're interested in hiring Dan to solve your data science problems, email him at daniel.e.morris -at- gmail -dot- com</p>
+    </div>
+
+    <script defer>
+        var margin = {top:20, left:50, right:20, bottom:20}
+        var vWidth = 1000 - margin.left - margin.right,
+            vHeight = 400 - margin.top - margin.bottom;
+        var topicBoxHeight = 22;
+        var buttonWidth = 300;
+        var buttonHeight = 25;
+        var parseMonth = d3.time.format("%Y-%m").parse,
+            stringMonth = d3.time.format("%Y-%m"),
+            parseDay = d3.time.format("%Y-%m-%d").parse,
+            formatPercent = d3.format(".0%");
+        var x = d3.time.scale()
+                       .range([0, vWidth]);
+        var yV = d3.scale.linear()
+                         .range([vHeight, 0]);
+        var color = d3.scale.ordinal()
+                      .range(["#A2692C","#E147E7","#4FADE4","#3EC126","#E43077",
+                      "#448962","#CB91DC","#E54523","#B5AF1B","#716BEC",
+                      "#A6677D","#ED961A","#537C8C","#45BF6E","#787D2E",
+                      "#BC4D9B","#42C4D2","#6872B9","#DA8B70","#8CB952",
+                      "#E6384C","#358C2A","#DC31B6","#3CBCA7","#D06626",
+                      "#D673EB","#CBA156","#527DE4","#B69ECA","#E6787F",
+                      "#E16452","#E496AE","#8FA7BE","#D4A42F","#679BEA",
+                      "#AC625E","#EB67A1","#417FB4","#9DAF65","#B187EE",
+                      "#8A7643","#6EB989","#74759F","#D54764","#45867E",
+                      "#E28F3F","#E03392","#93BA2D","#47C14E","#B342BC",
+                      "#A760B0","#BB557A","#B35B3F","#A39DE3","#A27D22",
+                      "#E682D3","#73B9AF","#AC5BE4","#D183B4","#8D9427",
+                      "#8762CE","#E861CB","#65B022","#648055","#36BF86",
+                      "#E08E5B","#59ACC4","#946E8F","#478E50","#5F8E33",
+                      "#84A9D5","#816CC1","#B6B245","#41A0A3","#6FBD64"]);
+        var xAxis = d3.svg.axis()
+                          .scale(x)
+                          .orient("bottom");
+        var yAxisV = d3.svg.axis()
+                                .scale(yV)
+                                .orient("left");
+        var areaV = d3.svg.area()
+                          .interpolate("monotone")
+                          .x(function(d) { return x(d.date); })
+                          .y0(function(d) { return yV(d.y0); })
+                          .y1(function(d) { return yV(d.y0 + d.y); });
+        var vStack = d3.layout.stack()
+                            .offset("stacked")
+                            .values(function(d) { return d.values; });
+        var vSvg = d3.select(".volume-svg")
+                           .attr("width", vWidth)
+                           .attr("height", vHeight)
+                           .attr("transform", "translate("+margin.left+","+margin.top+")");
+        var articleHelperSvg = d3.select(".article-helper")
+                                 .attr("width", vWidth)
+                                 .attr("height", 100)
+                                 .attr("transform", "translate("+margin.left+",0)");
+
+        d3.csv("100k200t_sqrt_tight.csv", function(error, data){
+        d3.json("100k200t_tight_sqrt_topics.json", function(jsondata){
+        d3.json("100k200t_topic_terms.json", function(topictermsdata){
+        // Load data into variables
+            // allTopics: list of topic names
+            var allTopics = d3.keys(data[0]).filter(function(key) { return key !== "date"; });
+            var numTopics = allTopics.length;
+            color.domain(allTopics);
+
+            // activeTopics: list of topic names for currently active topics
+            var activeTopics = [];
+
+            // add month to data
+            data.forEach(function(d) {
+                d.month = parseDay(d.date);
+            });
+
+            // set x domain: currently just months!
+            x.domain(d3.extent(data, function(d) { return d.month; }));
+
+        // SVG Functions
+            // emptyAxes: plots the volume and empire axes without any data
+            var emptyAxes = function(){
+                vSvg.html('');
+                d3.select(".active-topics-buttons").html('');
+                articleHelperSvg.html('');
+                d3.select('.active-topic-info').html('')
+                  .style("background-color", "#D2D6D9");
+                d3.select('.article-headline').html('');
+                d3.select('.lead_paragraph').html('');
+                yV.domain([0, 1]);
+                vSvg.append("g")
+                     .attr("class", "x axis")
+                     .attr("transform", "translate(0," + vHeight + ")")
+                     .call(xAxis);
+                vSvg.append("g")
+                     .attr("class", "y axis")
+                     .call(yAxisV);
+            };
+            // maxVolume: returns the maximum combined volume of activeTopics
+            var maxVolume = function(vdata){
+                if (vdata.length === 0) {return 0;}
+                else {return d3.max(vdata[vdata.length-1].values, function(d){return d.y + d.y0;})};
+            };
+            // plotVolumes: plots active topics on volume-svg
+            var plotVolumes = function(){
+                vSvg.html('');
+                var volumeData = activeTopics.map(function(name) {
+                    return {
+                      name: name,
+                      values: data.map(function(d) {
+                        return {date: d.month, y: parseFloat(d[name])};
+                      })
+                    }
+                });
+                vStack(volumeData);
+                yV.domain([0, maxVolume(volumeData)]);
+                var volumeTopic = vSvg.selectAll(".volumeTopic")
+                                      .data(volumeData)
+                                      .enter().append("g")
+                                      .attr("class", "volumeTopic");
+                volumeTopic.append("path")
+                           .attr("class", "area")
+                           .attr("id", function(d) { return "volume_" + d.name; })
+                           .attr("d", function(d) { return areaV(d.values); })
+                           .style("fill", function(d) { return color(d.name); })
+                           .on("mouseover", function(d) { plotTopicTerms(d.name);});
+                vSvg.append("g")
+                         .attr("class", "x axis")
+                         .attr("transform", "translate(0," + vHeight + ")")
+                         .call(xAxis);
+                vSvg.append("g")
+                         .attr("class", "y axis")
+                         .call(yAxisV);
+                vSvg.append("text")
+                    .attr("x", vWidth / 2)
+                    .attr("y", 32)
+                    .style("fill", '#555555')
+                    .text("Relative Topic Frequency")
+                    .style("font-size", 32)
+                    .style("text-anchor", 'middle');
+            };
+            // plotButtons: builds legend buttons
+            var plotButtons = function(){
+                var buttons = d3.select(".legend-general")
+                                .data([3]);
+                buttons.append("div")
+                       .attr("class", "button")
+                       .style("fill", "#000000")
+                       .style("cursor", "pointer")
+                       .on("click", plotRandomTopics)
+                       .text("SELECT 3 RANDOM TOPICS");
+                buttons.append("div")
+                      .attr("class", "button")
+                      .style("fill", "#000000")
+                      .style("cursor", "pointer")
+                      .on("click", clearAllTopics)
+                      .text("CLEAR ALL TOPICS");
+            };
+            // plotLegend: builds legend topic buttons
+            var plotLegend = function(){
+                var legendRow = d3.select(".legend-topics")
+                               .selectAll("div")
+                               .data(allTopics)
+                               .enter().append("div")
+                               .attr("class", "topic-button")
+                               .style("top", function(d, i){
+                                   return i * topicBoxHeight;
+                               });
+                legendRow.style("width", buttonWidth)
+                          .style("height", topicBoxHeight)
+                          .style("background-color", function(d){ return color(d); })
+                          .on("click", clickLegend)
+                          .on("mouseover", function(d) { plotTopicTerms(d);})
+                          .text(function(d){ return d; });
+            };
+            // plotRandomTopics: selects n random topics and plots them
+            var plotRandomTopics = function(n){
+                var r = '';
+                activeTopics = [];
+                while (activeTopics.length < n){
+                    r = allTopics[Math.floor(Math.random() * allTopics.length)];
+                    if (activeTopics.indexOf(r) === -1){
+                        activeTopics.push(r);
+                    }
+                };
+                plotVolumes()
+                plotActiveTopics()
+            };
+            // plotArticle: plots information about an article on the page!
+            var plotArticle = function(d){
+                d3.select(".article-headline")
+                  .html(
+                      d.article.pub_date + " - <a href=" + d.article.web_url +
+                      " target='_blank'>" + d.article.headline.main + "</a>"
+                  );
+                d3.select(".lead_paragraph")
+                  .text(d.article.lead_paragraph);
+            };
+            // plotActiveTopics: plots boxes for topics currently on the graph
+            var plotActiveTopics = function(){
+                d3.select(".active-topics-buttons").html('');
+                var activeTopicButtons = d3.select(".active-topics-buttons")
+                                          .selectAll('div')
+                                          .data(activeTopics)
+                                          .enter().append('div')
+                                          .attr("class", "topic-button")
+                                          .style("top", function(d, i){
+                                              return i * topicBoxHeight;
+                                          });
+                activeTopicButtons.style("width", buttonWidth)
+                                .style("height", topicBoxHeight)
+                                .style("background-color", function(d){ return color(d); })
+                                .on("click", clickLegend)
+                                .on("mouseover", plotTopicTerms)
+                                .text(function(d){ return d; });
+                plotArticleHelper()
+            };
+            // plotArticleHelper: plots little circles
+            var plotArticleHelper = function(){
+                articleHelperSvg.html('');
+                var articleData = activeTopics.map(function(name) {
+                    return {
+                      name: name,
+                      values: jsondata[name]
+                    };
+                });
+
+                // load all articles for active topics into this list
+                var articles = [];
+                articleData.forEach(function(t){
+                    for (var key in t.values){
+                        articles.push({'topic': t.name, 'article': t.values[key]});
+                    };
+                });
+                var circles = articleHelperSvg.selectAll(".articleCircle")
+                                .data(articles);
+                circles.enter().append("circle")
+                       .attr("class", "articleCircle")
+                       .attr("r", 5)
+                       .attr("cx", function(d){ return x(parseDay(d.article.pub_date)); })
+                       .attr("cy", 50)
+                       .style("fill", function(d){ return color(d.topic); })
+                       .on("click", plotArticle);
+                articleHelperSvg.append("text")
+                                .attr("x", vWidth / 2)
+                                .attr("y", 24)
+                                .style("fill", '#555555')
+                                .text("Relevant Articles (click the dots)")
+                                .style("font-size", 24)
+                                .style("text-anchor", 'middle');
+            };
+            // plotTopicTerms: shows key topic terms for the current topic
+            var plotTopicTerms = function(t){
+                d3.select('.active-topic-info')
+                  .html('')
+                  .style("background-color", color(t));
+
+                var terms = d3.select('.active-topic-info').selectAll('div')
+                              .data([topictermsdata[t]])
+                              .enter().append('div')
+                              .attr("class", "topic-term");
+                terms.text(function(d){ return d;});
+            };
+        // Click / Mouseover Functions
+            // clickLegend: routes the click appropriately
+            var clickLegend = function(t){
+                if (activeTopics.indexOf(t) === -1){
+                    clickTopicOn(t);
+                } else {
+                    clickTopicOff(t);
+                };
+            };
+            // clickTopicOn: selects a topic, refreshes plots accordingly
+            var clickTopicOn = function(t){
+                activeTopics.push(t);
+                plotVolumes()
+                plotActiveTopics()
+            };
+            // clickTopicOff: deselects a topic, refreshes plots accordingly
+            var clickTopicOff = function(t){
+                var index = activeTopics.indexOf(t);
+                activeTopics.splice(index, 1);
+
+                plotVolumes()
+                plotActiveTopics()
+            };
+            // clearAllTopics: deselects all topics
+            var clearAllTopics = function(){
+                // empty activeTopics
+                activeTopics = [];
+                // refresh topic buttons
+                emptyAxes()
+            };
+
+        // Initial Load!
+            plotButtons()
+            plotLegend()
+            plotRandomTopics(3)
+            plotActiveTopics()
+            plotArticleHelper()
+        });});});
+    </script>
+</body>
+</html>

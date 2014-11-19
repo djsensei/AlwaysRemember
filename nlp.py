@@ -69,7 +69,8 @@ def clean_all_docs(table, overwrite=False, verbose=False):
     INPUT:  mongo-collection - table, bool - overwrite, bool - verbose
     OUTPUT: None
     '''
-    mongo_query = {'full_text': {'$exists': True, '$ne': ''}}
+    mongo_query = {'full_text': {'$exists': True, '$ne': ''},
+                   'type_of_material': 'News'}
     if not overwrite:
         mongo_query['clean_text'] = {'$exists': False}
     i = 0
@@ -259,6 +260,32 @@ def print_topics(topic_dicts):
         for item in l:
             print '  ', item[1], '  ', item[0]
         print '\n'
+
+
+def concise_topics(topic_dicts, n=10):
+    '''
+    Finds the best n terms of each topic.
+    Designed for the D3 viz.
+
+    INPUT:  list - topic_dicts, int - number of terms
+    OUTPUT: list - list of terms for each topic
+    '''
+    concise = [None] * len(topic_dicts)
+    for i, td in enumerate(topic_dicts):
+        L = sorted(td.items(), key=lambda x: x[1])[:-1-n:-1]
+        concise[i] = [item[0] for item in L]
+    return concise
+
+
+def concise_topics_named(concise, topic_list):
+    topic_filter = np.array([bool(t[1]) for t in topic_list])
+    topic_names = [t[0] for t in topic_list if t[1] == 1]
+    concise = np.array(concise)[topic_filter]
+
+    d = {}
+    for i, name in enumerate(topic_names):
+        d[name] = ', '.join(list(concise[i]))
+    return d
 
 
 def human_topic_analysis(topic_dicts):

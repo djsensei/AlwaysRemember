@@ -1,0 +1,178 @@
+body{
+    background-color: #D2D6D9;
+    color:#000000;
+    font-family: 'Oswald', sans-serif;
+    overflow:scroll;
+}
+p{
+    margin:8px;
+}
+a:link {
+    text-decoration: none;
+}
+a:visited {
+    text-decoration: none;
+}
+a:hover {
+    text-decoration: underline;
+}
+a:active {
+    text-decoration: underline;
+}
+.header{
+    width:100%;
+    height:200px;
+    background-color: #C3C8CD;
+    padding:5px;
+}
+.header-left{
+    float:left;
+    height:auto;
+    width:360px;
+    text-align:center;
+}
+.title-header, .subtitle-header{
+    margin:2px;
+    font-weight:700;
+}
+.title-header{
+    font-size:48px;
+}
+.subtitle-header{
+    font-size:32px;
+    color:#555555;
+}
+.description{
+    position:absolute;
+    left:420px;
+    top:20px;
+    width:auto;
+    height:auto;
+    padding:5px;
+    margin:2px;
+    font-size:20px;
+    font-weight:300;
+}
+.viz-container{
+    width:100%;
+    height:650px;
+    margin-bottom:10px;
+}
+.legend{
+    width:270px;
+    height:650px;
+    position:absolute;
+    float:left;
+    background-color: #C3C8CD;
+    overflow:scroll;
+}
+.viz{
+    height:650px;
+    position:absolute;
+    left:320px;
+}
+.volume{
+    position:relative;
+    height:500px;
+}
+.article-helper{
+    position:relative;
+    margin-top:20px;
+    height:70px;
+}
+.information-container{
+    position:relative;
+    height:170px;
+    margin-top:5px;
+}
+.active-topics-container{
+    width:270px;
+    height:170px;
+    overflow:scroll;
+    float:left;
+}
+.active-topics-header, .topic-info-header{
+    color:#555555;
+    text-align:center;
+    font-size:16px;
+}
+.topic-info{
+    color:#000000;
+    float:left;
+    width:200px;
+    height:100%;
+    margin-left:5px;
+    overflow:scroll;
+}
+.active-topic-info{
+    overflow:scroll;
+    height:150px;
+}
+.topic-term{
+    margin:0px;
+    padding-left:5px;
+    padding-right:5px;
+    font-size:16px;
+    font-weight:300;
+}
+.article-info{
+    color:#000000;
+    font-family: Times;
+    overflow:scroll;
+    float:left;
+    width:500px;
+    height:100%;
+    margin-left:5px;
+}
+.article-headline{
+    font-size:20px;
+}
+.legend-general{
+    margin-left:10px;
+    width:250px;
+    height:70px;
+}
+.button{
+    margin-top:10px;
+    width:250px;
+    height:25px;
+    background-color:#000000;
+    color:#999999;
+    text-align:center;
+}
+.legend-topics{
+    margin-left:10px;
+    width:250px;
+    float:left;
+    overflow:scroll;
+}
+.topic-button{
+    margin-top:2px;
+    padding-left:5px;
+    opacity:.7;
+    cursor:pointer;
+    text-align:center;
+}
+.topic-button:hover{
+    opacity:1;
+}
+.x.axis, .y.axis{
+    fill: #A8ADB4;
+}
+.footer{
+    width:100%;
+    height:auto;
+    padding-top:20px;
+    padding-bottom:20px;
+    text-align:center;
+    background-color: #A8ADB4;
+}
+.footer-text{
+
+}
+.area{
+    opacity:.7;
+}
+.area:hover{
+    opacity:1;
+}
