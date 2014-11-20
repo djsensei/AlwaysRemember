@@ -1,5 +1,7 @@
 '''
-Using the pre-compiled topic model, determine topic frequencies by date ranges
+Topic Analysis functionality for the Always Remember project.
+
+Dan Morris 11/3/14 - 11/20/14
 '''
 import pickle
 import numpy as np

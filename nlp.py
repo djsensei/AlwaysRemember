@@ -1,5 +1,7 @@
 '''
-NLP functionality for Timescape project
+Natural Language Processing functionality for the Always Remember project.
+
+Dan Morris 11/3/14 - 11/20/14
 '''
 from string import punctuation
 from nltk.corpus import stopwords

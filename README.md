@@ -1,4 +1,4 @@
-# Never Forget: Modeling the Topics of September 11 from 2001 to the Present
+# Always Remember: Modeling the Topics of September 11 from 2001 to the Present
 
 ### Dan Morris, Zipfian Academy, 11/3/14 - 11/20/14
 
