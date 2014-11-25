@@ -174,9 +174,12 @@ a:active {
 .footer-text{
 
 }
-.area{
-    opacity:.7;
+.path{
+    stroke-opacity:.7;
 }
-.area:hover{
-    opacity:1;
+.path:hover{
+    stroke-opacity:1;
+}
+.area{
+    opacity:.15;
 }

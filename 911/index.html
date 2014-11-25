@@ -88,8 +88,12 @@
         var areaV = d3.svg.area()
                           .interpolate("monotone")
                           .x(function(d) { return x(d.date); })
-                          .y0(function(d) { return yV(d.y0); })
-                          .y1(function(d) { return yV(d.y0 + d.y); });
+                          .y0(vHeight)
+                          .y1(function(d) { return yV(d.y); });
+        var lineV = d3.svg.line()
+                          .interpolate("monotone")
+                          .x(function(d) { return x(d.date); })
+                          .y(function(d) { return yV(d.y)});
         var vStack = d3.layout.stack()
                             .offset("stacked")
                             .values(function(d) { return d.values; });
@@ -146,6 +150,13 @@
                 if (vdata.length === 0) {return 0;}
                 else {return d3.max(vdata[vdata.length-1].values, function(d){return d.y + d.y0;})};
             };
+            // maxLine: returns the maximum value of any point in activeTopics
+            var maxLine = function(vdata){
+                if (vdata.length === 0) {return 0;}
+                else {return d3.max(vdata, function(v){
+                    return d3.max(v.values, function(d){ return d.y; })
+                })};
+            };
             // plotVolumes: plots active topics on volume-svg
             var plotVolumes = function(){
                 vSvg.html('');
@@ -157,18 +168,28 @@
                       })
                     }
                 });
-                vStack(volumeData);
-                yV.domain([0, maxVolume(volumeData)]);
+
+                // line plots
+                yV.domain([0, maxLine(volumeData)]);
+
                 var volumeTopic = vSvg.selectAll(".volumeTopic")
                                       .data(volumeData)
                                       .enter().append("g")
                                       .attr("class", "volumeTopic");
                 volumeTopic.append("path")
+                           .attr("class", "line")
+                           .attr("id", function(d) { return "line_" + d.name; })
+                           .attr("d", function(d) {return lineV(d.values); })
+                           .style("stroke", function(d) { return color(d.name); })
+                           .style("stroke-width", 5)
+                           .style("stroke-opacity", .7)
+                           .style("fill", 'none')
+                           .on("mouseover", function(d) { plotTopicTerms(d.name); });
+                volumeTopic.append("path")
                            .attr("class", "area")
-                           .attr("id", function(d) { return "volume_" + d.name; })
+                           .attr("id", function(d) { return "area_" + d.name; })
                            .attr("d", function(d) { return areaV(d.values); })
-                           .style("fill", function(d) { return color(d.name); })
-                           .on("mouseover", function(d) { plotTopicTerms(d.name);});
+                           .style("fill", function(d) { return color(d.name); });
                 vSvg.append("g")
                          .attr("class", "x axis")
                          .attr("transform", "translate(0," + vHeight + ")")
