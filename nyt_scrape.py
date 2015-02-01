@@ -15,7 +15,8 @@ import simplejson as json
 from time import sleep
 
 BASE_URL = 'http://api.nytimes.com/svc/search/v2/articlesearch.json?'
-API_KEY = 'f5720d095a40f76fc4c1e2c4b4657e8f:15:57014703'
+with open('nytapi.txt') as f:
+    API_KEY = f.read().strip('\n')
 
 # not used yet, but could be. These url snippets always fail to scrape.
 URLS_TO_IGNORE = set(['http://www.nytimes.com/video', 'http://www.legacy.com',
